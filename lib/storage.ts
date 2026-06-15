@@ -39,6 +39,94 @@ const DB_NAME = 'stamp-cutter-db';
 const DB_VERSION = 2; // Increment version for schema update
 const STORE_NAME = 'projects';
 const PROJECT_KEY = 'current';
+const API_KEY_STORAGE_KEY = 'gemini_api_key_encrypted';
+const LEGACY_API_KEY_STORAGE_KEY = 'gemini_api_key';
+
+const bytesToBase64 = (bytes: Uint8Array): string => {
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+};
+
+const base64ToBytes = (base64: string): Uint8Array => {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+async function getApiKeyCryptoKey(): Promise<CryptoKey> {
+  const source = [
+    'stamp-cutter-api-key',
+    typeof window !== 'undefined' ? window.location.origin : 'local',
+    typeof navigator !== 'undefined' ? navigator.userAgent : 'browser',
+  ].join('|');
+  const seed = new TextEncoder().encode(source);
+  const hash = await crypto.subtle.digest('SHA-256', seed);
+  return crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+export async function saveGeminiApiKey(apiKey: string): Promise<void> {
+  if (!apiKey.trim()) return;
+  if (typeof window === 'undefined' || !crypto?.subtle) {
+    throw new Error('このブラウザではAPIキーの暗号化保存を利用できません。');
+  }
+
+  // This is lightweight protection for localStorage. The fundamental hardening is bundling
+  // external CDN dependencies and adding SRI/CSP so injected scripts cannot read browser data.
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(apiKey.trim());
+  const key = await getApiKeyCryptoKey();
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+
+  localStorage.setItem(
+    API_KEY_STORAGE_KEY,
+    JSON.stringify({
+      v: 1,
+      iv: bytesToBase64(iv),
+      data: bytesToBase64(new Uint8Array(cipher)),
+    })
+  );
+  localStorage.removeItem(LEGACY_API_KEY_STORAGE_KEY);
+}
+
+export async function loadGeminiApiKey(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  const encrypted = localStorage.getItem(API_KEY_STORAGE_KEY);
+  if (encrypted && crypto?.subtle) {
+    try {
+      const payload = JSON.parse(encrypted);
+      const key = await getApiKeyCryptoKey();
+      const plain = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: base64ToBytes(payload.iv) },
+        key,
+        base64ToBytes(payload.data)
+      );
+      return new TextDecoder().decode(plain);
+    } catch (err) {
+      console.warn('APIキーの復号に失敗:', err);
+      return null;
+    }
+  }
+
+  const legacyKey = localStorage.getItem(LEGACY_API_KEY_STORAGE_KEY);
+  if (legacyKey) {
+    await saveGeminiApiKey(legacyKey);
+    return legacyKey;
+  }
+  return null;
+}
+
+export function removeGeminiApiKey(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(API_KEY_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_API_KEY_STORAGE_KEY);
+}
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -217,6 +305,24 @@ export async function deleteProject(): Promise<void> {
     });
   } catch (err) {
     console.error('プロジェクト削除に失敗:', err);
+  }
+}
+
+export async function deleteAllStoredData(): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction([STORE_NAME, 'materials'], 'readwrite');
+    tx.objectStore(STORE_NAME).delete(PROJECT_KEY);
+    tx.objectStore('materials').clear();
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  } catch (err) {
+    console.error('全データ削除に失敗:', err);
+  } finally {
+    removeGeminiApiKey();
   }
 }
 

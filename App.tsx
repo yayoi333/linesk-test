@@ -5,9 +5,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Download, Loader2, Image as ImageIcon, Grid, Languages, Settings, ExternalLink, Plus, X as XIcon, Save, GripVertical, Smartphone, Copy, Check, Wand2, Crop, Sliders, Move, ChevronDown, ChevronUp, Info, CheckCircle2, RotateCw, Layers, Minus, Plus as PlusIcon, Trash2, Type, Lock } from 'lucide-react';
 import { AppStep, Stamp, MetaData, ExportConfig, SourceImage, TARGET_WIDTH, TARGET_HEIGHT, MAIN_WIDTH, MAIN_HEIGHT, TAB_WIDTH, TAB_HEIGHT, TextObject, ImageLayerObject, DrawingStroke } from './types';
 import { processUploadedImage, reprocessStampWithTolerance } from './lib/imageProcessing';
-import { translateMeta } from './lib/gemini';
+import { generateMeta, setGeminiApiKey, translateMeta } from './lib/gemini';
 import { createAndDownloadZip, createFinalImageBlob, renderAllLayers, loadProjectFromZip } from './lib/zipService';
-import { saveProject, loadProject, deleteProject, restoreSourceImages } from './lib/storage';
+import { saveProject, loadProject, deleteProject, deleteAllStoredData, loadGeminiApiKey, removeGeminiApiKey, restoreSourceImages, saveGeminiApiKey } from './lib/storage';
 import { StampEditorModal } from './components/StampEditorModal';
 import { ManualCropModal } from './components/ManualCropModal';
 import { TextSetModal } from './components/TextSetModal';
@@ -248,6 +248,7 @@ export default function App() {
   const isOverLimit = validStampsCount > 40;
   const [isTranslating, setIsTranslating] = useState(false);
   const [descriptionHintOpen, setDescriptionHintOpen] = useState(false);
+  const [isGeneratingMeta, setIsGeneratingMeta] = useState(false);
 
   // Editor State
   const [editingStamp, setEditingStamp] = useState<Stamp | null>(null);
@@ -301,7 +302,7 @@ export default function App() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [savedApiKey, setSavedApiKey] = useState<string | null>(null);
-  const handleDeleteStamp = () => { if (!deleteTarget) return; setStamps(prev => prev.filter(s => s.id !== deleteTarget.id)); if (mainConfig?.id === deleteTarget.id) setMainConfig(null); if (tabConfig?.id === deleteTarget.id) setTabConfig(null); setDeleteTarget(null); };
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const handleUnifyScale = () => {
     if (stamps.length === 0) return;
@@ -336,11 +337,18 @@ export default function App() {
 
   // --- Load API Key on Mount ---
   useEffect(() => {
-    const key = localStorage.getItem('gemini_api_key');
-    if (key) {
+    let cancelled = false;
+    const loadKey = async () => {
+      const key = await loadGeminiApiKey();
+      if (cancelled || !key) return;
       setSavedApiKey(key);
+      setGeminiApiKey(key);
       setApiKeyInput(key);
-    }
+    };
+    loadKey();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // --- Restore Check on Mount ---
@@ -533,21 +541,89 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const handleSaveApiKey = () => {
+  const persistProjectNow = async (
+    nextStamps = stamps,
+    nextSourceImages = sourceImages,
+    nextMainConfig = mainConfig,
+    nextTabConfig = tabConfig,
+    nextMeta = meta,
+    nextGlobalTolerance = globalTolerance,
+    nextGapTolerance = gapTolerance,
+    nextPreviewBg = previewBg
+  ) => {
+    await saveProject(
+      nextStamps,
+      nextSourceImages,
+      nextMainConfig,
+      nextTabConfig,
+      nextMeta,
+      nextGlobalTolerance,
+      nextGapTolerance,
+      nextPreviewBg
+    );
+    setLastSavedAt(new Date().toISOString());
+  };
+
+  const handleDeleteStamp = async () => {
+    if (!deleteTarget) return;
+    const nextStamps = stamps.filter(s => s.id !== deleteTarget.id);
+    const nextMainConfig = mainConfig?.id === deleteTarget.id ? null : mainConfig;
+    const nextTabConfig = tabConfig?.id === deleteTarget.id ? null : tabConfig;
+    setStamps(nextStamps);
+    setMainConfig(nextMainConfig);
+    setTabConfig(nextTabConfig);
+    setDeleteTarget(null);
+    try {
+      await persistProjectNow(nextStamps, sourceImages, nextMainConfig, nextTabConfig);
+      showToast('削除して保存しました');
+    } catch (err) {
+      console.error('削除後の保存に失敗:', err);
+      alert('削除後の保存に失敗しました。手動保存をお試しください。');
+    }
+  };
+
+  const handleSaveApiKey = async () => {
     const trimmed = apiKeyInput.trim();
     if (trimmed) {
-      localStorage.setItem('gemini_api_key', trimmed);
-      setSavedApiKey(trimmed);
-      showToast('APIキーを保存しました');
+      try {
+        await saveGeminiApiKey(trimmed);
+        setSavedApiKey(trimmed);
+        setGeminiApiKey(trimmed);
+        showToast('APIキーを保存しました');
+      } catch (err: any) {
+        console.error('APIキー保存に失敗:', err);
+        alert(err?.message || 'APIキーの保存に失敗しました。');
+        return;
+      }
     }
     setShowApiKeyModal(false);
   };
 
   const handleRemoveApiKey = () => {
-    localStorage.removeItem('gemini_api_key');
+    removeGeminiApiKey();
+    setGeminiApiKey('');
     setSavedApiKey(null);
     setApiKeyInput('');
     showToast('APIキーを削除しました');
+  };
+
+  const handleDeleteAllData = async () => {
+    await deleteAllStoredData();
+    setStamps([]);
+    setSourceImages([]);
+    setMainConfig(null);
+    setTabConfig(null);
+    setMeta({ stampNameJa: '', stampDescJa: '', stampNameEn: '', stampDescEn: '' });
+    setGlobalTolerance(20);
+    setGapTolerance(15);
+    setPreviewBg('checker');
+    setSavedApiKey(null);
+    setApiKeyInput('');
+    setGeminiApiKey('');
+    setLastSavedAt(null);
+    setShowDeleteAllDialog(false);
+    setStep(AppStep.UPLOAD);
+    showToast('保存データをすべて削除しました');
   };
 
   // --- Auto Save ---
@@ -709,12 +785,17 @@ export default function App() {
     setSourceImages(prev => [...prev, ...newSources]);
   };
 
-  const removeSourceImage = (id: string) => {
-      setSourceImages(prev => {
-          const next = prev.filter(img => img.id !== id);
-          if (next.length === 0) setHasGridLines(false);
-          return next;
-      });
+  const removeSourceImage = async (id: string) => {
+      const nextSourceImages = sourceImages.filter(img => img.id !== id);
+      setSourceImages(nextSourceImages);
+      if (nextSourceImages.length === 0) setHasGridLines(false);
+      if (step === AppStep.EDIT) {
+        try {
+          await persistProjectNow(stamps, nextSourceImages);
+        } catch (err) {
+          console.error('画像削除後の保存に失敗:', err);
+        }
+      }
   };
 
   const startProcessing = async () => {
@@ -1008,6 +1089,44 @@ export default function App() {
       alert(`翻訳に失敗しました: ${e?.message || '原因不明のエラー'}`);
     } finally {
       setIsTranslating(false);
+    }
+  };
+
+  const handleGenerateMeta = async () => {
+    if (!savedApiKey) {
+      setShowApiKeyModal(true);
+      return alert('AI生成にはGemini APIキーの設定が必要です。');
+    }
+
+    const confirmed = window.confirm('AI生成では、代表スタンプ画像と入力済みテキストが外部（Google Gemini）へ送信されます。実行しますか？');
+    if (!confirmed) return;
+
+    const sampleStamp = stamps.find(s => !s.isExcluded) || stamps[0];
+    setIsGeneratingMeta(true);
+    try {
+      const result = await generateMeta(
+        {
+          imageDataUrl: sampleStamp?.dataUrl,
+          stampCount: validStampsCount || stamps.length,
+          existingMeta: meta,
+        },
+        savedApiKey
+      );
+
+      const nextMeta = {
+        stampNameJa: result.stampNameJa || meta.stampNameJa,
+        stampDescJa: result.stampDescJa || meta.stampDescJa,
+        stampNameEn: result.stampNameEn || meta.stampNameEn,
+        stampDescEn: result.stampDescEn || meta.stampDescEn,
+      };
+      setMeta(nextMeta);
+      await persistProjectNow(stamps, sourceImages, mainConfig, tabConfig, nextMeta);
+      showToast('タイトル・説明文をAI生成しました');
+    } catch (e: any) {
+      console.error('AI生成エラー:', e);
+      alert(`AI生成に失敗しました: ${e?.message || '原因不明のエラー'}`);
+    } finally {
+      setIsGeneratingMeta(false);
     }
   };
 
@@ -1383,6 +1502,10 @@ export default function App() {
                 <p className="text-gray-500 mb-4 text-sm">またはクリックして選択 (最大50枚)</p>
                 <div className="inline-block bg-primary-600 text-white px-6 py-3 rounded-full font-bold shadow-lg shadow-primary-200">画像を追加する</div>
               </div>
+              <div className="mb-4 bg-blue-50 border border-blue-100 text-blue-700 rounded-xl p-3 text-xs flex items-start gap-2 text-left">
+                <Info size={15} className="mt-0.5 shrink-0" />
+                <p>アップロードした画像はこの端末内（ブラウザ）だけで処理・保存され、外部には送信されません。AI機能を押した場合のみ、確認後にGoogleへ送信されます。</p>
+              </div>
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center gap-4 justify-center mb-3">
                   <div className="h-px bg-gray-300 w-12"></div>
@@ -1578,10 +1701,14 @@ export default function App() {
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-primary-100">
-                     <h3 className="font-bold text-gray-700 flex items-center gap-2 mb-4"><Languages className="text-primary-500" size={20} />スタンプ名・説明文</h3>
+                     <div className="flex items-center justify-between gap-3 mb-4">
+                        <h3 className="font-bold text-gray-700 flex items-center gap-2"><Languages className="text-primary-500" size={20} />スタンプ名・説明文</h3>
+                        <button onClick={handleGenerateMeta} disabled={isGeneratingMeta || stamps.length === 0} className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white py-1.5 px-3 rounded-lg font-bold text-xs shadow transition disabled:opacity-50">{isGeneratingMeta ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}AI生成</button>
+                     </div>
                     <div className="space-y-4">
                         <div><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">タイトル（スタンプ名）</label><CopyButton text={meta.stampNameJa} /></div><TextCounter current={meta.stampNameJa.length} min={2} max={40} /></div><input type="text" className={`w-full bg-primary-50 border rounded-md text-sm focus:ring-primary-500 focus:border-primary-500 ${meta.stampNameJa.length >= 40 ? 'border-red-300 bg-red-50' : 'border-primary-200'}`} maxLength={40} value={meta.stampNameJa} onChange={e => setMeta({...meta, stampNameJa: e.target.value})} /></div>
                         <div><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">スタンプ説明文</label><CopyButton text={meta.stampDescJa} /></div><TextCounter current={meta.stampDescJa.length} min={10} max={160} /></div><textarea className={`w-full bg-primary-50 border rounded-md text-sm focus:ring-primary-500 focus:border-primary-500 ${meta.stampDescJa.length >= 160 ? 'border-red-300 bg-red-50' : 'border-primary-200'}`} rows={3} maxLength={160} value={meta.stampDescJa} onChange={e => setMeta({...meta, stampDescJa: e.target.value})} /><div className="mt-2"><button onClick={() => setDescriptionHintOpen(!descriptionHintOpen)} className="flex items-center gap-1 text-xs text-primary-600 font-bold hover:text-primary-700">{descriptionHintOpen ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}説明文ヒント</button>{descriptionHintOpen && (<div className="mt-2 p-3 bg-gray-100 rounded-lg text-[10px] border border-gray-200 animate-fade-in"><span className="font-bold text-gray-500 mb-1 block">入力例：</span>○○のスタンプ。毎日よく使う言葉がたくさん。バレンタインに使える。お煎餅もあるよ。チョコ好きの方も煎餅好きの方もどうぞ！</div>)}</div></div>
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">AI生成・翻訳を押した時だけ、画像・テキストが外部（Google Gemini）へ送信されます。</p>
                         <button onClick={handleTranslation} disabled={isTranslating} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded-lg font-bold text-sm shadow hover:shadow-lg transition disabled:opacity-50">{isTranslating ? 'AI翻訳中...' : '英語に翻訳'}</button>
                         <div className="pt-2 border-t border-dashed"><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">タイトル(En)</label><CopyButton text={meta.stampNameEn} /></div><TextCounter current={meta.stampNameEn.length} min={2} max={40} /></div><input type="text" className="w-full bg-primary-50 border-primary-200 rounded-md text-sm" maxLength={40} value={meta.stampNameEn} onChange={e => setMeta({...meta, stampNameEn: e.target.value})} /></div>
                         <div><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">説明文(En)</label><CopyButton text={meta.stampDescEn} /></div><TextCounter current={meta.stampDescEn.length} min={10} max={160} /></div><textarea className="w-full bg-primary-50 border-primary-200 rounded-md text-sm" rows={3} maxLength={160} value={meta.stampDescEn} onChange={e => setMeta({...meta, stampDescEn: e.target.value})} /></div>
@@ -1592,6 +1719,7 @@ export default function App() {
                     <div className="flex items-center gap-2 mb-4"><input type="checkbox" id="renumber" checked={renumber} onChange={e => setRenumber(e.target.checked)} className="rounded text-primary-600" /><label htmlFor="renumber" className="text-sm text-gray-700">番号を振り直す (01.png〜)</label></div>
                     <button onClick={handleExport} className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2"><Download size={20} />ZIPをダウンロード</button>
                     <div className="pt-4 border-t border-primary-200/50 space-y-3"><a href="https://creator.line.me/ja/stickermaker/" target="_blank" rel="noopener noreferrer" className="w-full bg-white text-[#06C755] border border-[#06C755] font-bold py-3 rounded-xl flex items-center justify-center gap-2 md:hidden"><Smartphone size={18} />LINEスタンプメーカー</a><a href="https://creator.line.me/ja/" target="_blank" rel="noopener noreferrer" className="w-full bg-white text-gray-600 border border-gray-300 font-bold py-3 rounded-xl flex items-center justify-center gap-2"><ExternalLink size={18} />クリエイターズマーケット</a></div>
+                    <button type="button" onClick={() => setShowDeleteAllDialog(true)} className="w-full bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm"><Trash2 size={16} />データをすべて削除する</button>
                 </div>
             </div>
           </div>
@@ -1662,6 +1790,20 @@ export default function App() {
         </div>
       )}
 
+      {showDeleteAllDialog && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+            <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={32} className="text-red-500" /></div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">データをすべて削除しますか？</h3>
+            <p className="text-sm text-gray-500 mb-6">保存済みプロジェクト、素材ライブラリ、Gemini APIキーをこのブラウザから削除します。この操作は取り消せません。</p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteAllDialog(false)} className="flex-1 bg-white border border-gray-300 text-gray-600 font-bold py-2.5 rounded-xl shadow-sm transition hover:bg-gray-50">キャンセル</button>
+              <button onClick={handleDeleteAllData} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl shadow transition">すべて削除</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deleteTarget && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-xs w-full p-6 text-center">
@@ -1714,7 +1856,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-700">
                 <p className="font-bold mb-1">AI翻訳機能を使うにはGemini APIキーが必要です</p>
-                <p>APIキーはブラウザに保存され、サーバーには送信されません。</p>
+                <p>APIキーは簡易暗号化してブラウザに保存され、AI機能の実行時だけGoogleへ送信されます。</p>
               </div>
               
               <div>
