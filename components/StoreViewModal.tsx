@@ -183,9 +183,9 @@ export const StoreViewModal: React.FC<Props> = ({
   // スマホは表示をコインにする。選ぶときは金額（円）のまま選べるよう、
   // 透明の <select> を表示の上に重ねている
   const coinPriceSelect = (
-    <div className="relative inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50" title="クリックすると金額で選べます">
-      <span className="w-6 h-6 rounded-full bg-[#f0b400] text-white text-sm font-bold flex items-center justify-center shrink-0">L</span>
-      <span className="text-2xl font-bold text-gray-800">{COIN_BY_PRICE[storeInfo.price] ?? storeInfo.price}</span>
+    <div className="relative inline-flex items-center gap-1.5 rounded px-2 py-0.5 hover:bg-gray-50" title="クリックすると金額で選べます">
+      <span className="w-[18px] h-[18px] rounded-full bg-[#f0b400] text-white text-[11px] font-bold flex items-center justify-center shrink-0">L</span>
+      <span className="text-base font-bold text-gray-800">{COIN_BY_PRICE[storeInfo.price] ?? storeInfo.price}</span>
       <select
         value={storeInfo.price}
         onChange={(e) => onStoreInfoChange({ ...storeInfo, price: Number(e.target.value) })}
@@ -202,7 +202,7 @@ export const StoreViewModal: React.FC<Props> = ({
       onClick={() => setFavorite(!favorite)}
       className={`shrink-0 flex items-center justify-center border rounded transition ${
         favorite ? 'border-gray-200 text-red-500' : 'border-gray-200 text-gray-300 hover:text-red-400'
-      } ${isMobile ? 'w-[70px] h-12' : 'w-9 h-9 rounded-full'}`}
+      } ${isMobile ? 'w-[54px] h-[54px] rounded' : 'w-9 h-9 rounded-full'}`}
       title={favorite ? 'お気に入りから外す' : 'お気に入りに追加'}
     >
       <Heart size={isMobile ? 22 : 18} fill={favorite ? 'currentColor' : 'none'} />
@@ -306,7 +306,7 @@ export const StoreViewModal: React.FC<Props> = ({
                 {title || <span className="text-gray-300">スタンプ名が未入力です</span>}
               </h1>
 
-              <div className="mt-4 flex justify-center">{coinPriceSelect}</div>
+              <div className="mt-1.5 flex justify-center">{coinPriceSelect}</div>
 
               <div className="mt-5 flex items-stretch gap-2">
                 {favoriteButton}
