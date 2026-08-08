@@ -297,7 +297,7 @@ export default function App() {
   const [showTextSetModal, setShowTextSetModal] = useState(false);
   // ストアビュー(LINEスタンプストア風プレビュー)
   const [showStoreView, setShowStoreView] = useState(false);
-  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ creator: '', copyright: '', price: 250, isAnimated: false });
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ creator: '', copyright: '', price: 250 });
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1613,7 +1613,7 @@ export default function App() {
                         </button>
                         <button
                           onClick={() => setShowStoreView(true)}
-                          className="flex items-center gap-1 bg-[#06C755] hover:bg-[#05a948] text-white font-bold py-1.5 px-3 rounded-lg shadow text-xs sm:text-sm transition"
+                          className="flex items-center gap-1 bg-lime-100 hover:bg-lime-200 border border-lime-300 text-lime-800 font-bold py-1.5 px-3 rounded-lg shadow-sm text-xs sm:text-sm transition"
                           title="LINEスタンプストア風のプレビューを表示します"
                         >
                           <Smartphone size={14} />ストアビュー

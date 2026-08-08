@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Heart, Play } from 'lucide-react';
+import { X, Heart, Smartphone, Monitor } from 'lucide-react';
 import { Stamp, MetaData, ExportConfig, TARGET_WIDTH, TARGET_HEIGHT, MAIN_WIDTH, MAIN_HEIGHT } from '../types';
 import { renderAllLayers } from '../lib/zipService';
 
-// LINEクリエイターズマーケットの価格帯(動かないスタンプとアニメーションスタンプで異なる)
-const PRICE_OPTIONS_STATIC = [190, 250, 320, 350, 370, 490, 610];
-const PRICE_OPTIONS_ANIMATED = [250, 320, 350, 370, 490, 610];
+// LINEクリエイターズマーケットの価格帯(動かないスタンプ)
+const PRICE_OPTIONS = [190, 250, 320, 350, 370, 490, 610];
 
 export interface StoreInfo {
   creator: string;
   copyright: string;
   price: number;
-  isAnimated: boolean;
 }
 
 interface Props {
@@ -77,7 +75,8 @@ const EditableText: React.FC<{
   onChange: (v: string) => void;
   placeholder: string;
   className?: string;
-}> = ({ value, onChange, placeholder, className = '' }) => {
+  display?: (v: string) => React.ReactNode;
+}> = ({ value, onChange, placeholder, className = '', display }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
 
@@ -97,7 +96,7 @@ const EditableText: React.FC<{
           if (e.key === 'Escape') { setDraft(value); setEditing(false); }
         }}
         placeholder={placeholder}
-        className={`border border-primary-400 rounded px-1 outline-none ${className}`}
+        className={`border border-primary-400 rounded px-1 outline-none text-center ${className}`}
       />
     );
   }
@@ -107,7 +106,7 @@ const EditableText: React.FC<{
       className={`cursor-text hover:bg-yellow-50 hover:outline hover:outline-1 hover:outline-yellow-300 rounded px-1 ${className}`}
       title="クリックして編集"
     >
-      {value || <span className="text-gray-400">{placeholder}</span>}
+      {value ? (display ? display(value) : value) : <span className="text-gray-400">{placeholder}</span>}
     </span>
   );
 };
@@ -118,10 +117,17 @@ export const StoreViewModal: React.FC<Props> = ({
   const hasEnglish = !!(meta.stampNameEn?.trim() || meta.stampDescEn?.trim());
   // 日本語・英語の両方があるときは日本語を初期表示にする
   const [lang, setLang] = useState<'ja' | 'en'>('ja');
-  // クリック／ホバーで動かすスタンプ
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [device, setDevice] = useState<'pc' | 'mobile'>('pc');
+  const [favorite, setFavorite] = useState(false);
+  const [previewStamp, setPreviewStamp] = useState<Stamp | null>(null);
 
-  useEffect(() => { if (isOpen) setLang('ja'); }, [isOpen]);
+  useEffect(() => {
+    if (!isOpen) return;
+    setLang('ja');
+    setPreviewStamp(null);
+    // 開いた端末に合わせて初期表示を決める
+    setDevice(window.innerWidth < 640 ? 'mobile' : 'pc');
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -147,29 +153,87 @@ export const StoreViewModal: React.FC<Props> = ({
     flipV: s.flipV,
   });
 
+  const isMobile = device === 'mobile';
+
+  const priceSelect = (
+    <div className="flex items-baseline gap-1">
+      <span className="text-[#06C755] text-2xl font-bold">￥</span>
+      <select
+        value={storeInfo.price}
+        onChange={(e) => onStoreInfoChange({ ...storeInfo, price: Number(e.target.value) })}
+        className="text-[#06C755] text-2xl font-bold bg-transparent border border-transparent hover:border-gray-300 rounded cursor-pointer outline-none focus:border-primary-400"
+        title="価格を選択"
+      >
+        {PRICE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+    </div>
+  );
+
+  const favoriteButton = (
+    <button
+      onClick={() => setFavorite(!favorite)}
+      className={`shrink-0 flex items-center justify-center border rounded transition ${
+        favorite ? 'border-gray-200 text-red-500' : 'border-gray-200 text-gray-300 hover:text-red-400'
+      } ${isMobile ? 'w-[70px] h-12' : 'w-9 h-9 rounded-full'}`}
+      title={favorite ? 'お気に入りから外す' : 'お気に入りに追加'}
+    >
+      <Heart size={isMobile ? 22 : 18} fill={favorite ? 'currentColor' : 'none'} />
+    </button>
+  );
+
+  const noteLine = (
+    <p className="text-gray-400">スタンプをクリックするとプレビューが表示されます。</p>
+  );
+
+  const stickerGrid = (
+    <div className="grid grid-cols-4 gap-3 sm:gap-4">
+      {stamps.map(s => (
+        <div
+          key={s.id}
+          className="aspect-[37/32] flex items-center justify-center cursor-pointer select-none hover:bg-gray-50 rounded transition"
+          onClick={() => setPreviewStamp(s)}
+          title="クリックするとプレビューが表示されます"
+        >
+          <StoreSticker
+            imageUrl={s.dataUrl}
+            config={stampToConfig(s)}
+            width={TARGET_WIDTH}
+            height={TARGET_HEIGHT}
+          />
+        </div>
+      ))}
+    </div>
+  );
+
+  const copyrightLine = (
+    <div className="text-center text-xs text-gray-400">
+      <EditableText
+        value={storeInfo.copyright}
+        onChange={(v) => onStoreInfoChange({ ...storeInfo, copyright: v.replace(/^©\s*/, '') })}
+        placeholder="コピーライトを入力"
+        display={(v) => `©${v}`}
+      />
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-      {/* ストアの見た目に合わせた動きの再現（静止画スタンプなので疑似的な動き） */}
-      <style>{`
-        @keyframes storeStickerPop {
-          0%   { transform: scale(1) rotate(0deg); }
-          25%  { transform: scale(1.12) rotate(-4deg); }
-          50%  { transform: scale(0.96) rotate(3deg); }
-          75%  { transform: scale(1.06) rotate(-2deg); }
-          100% { transform: scale(1) rotate(0deg); }
-        }
-        .store-sticker-play { animation: storeStickerPop 0.7s ease-in-out; }
-        @media (hover: hover) {
-          .store-sticker-cell:hover .store-sticker-inner { animation: storeStickerPop 0.7s ease-in-out; }
-        }
-      `}</style>
-
       <div className="bg-white w-full h-full sm:h-[95vh] sm:max-w-5xl sm:rounded-xl shadow-2xl flex flex-col overflow-hidden">
         {/* ツールバー（プレビュー用。ストアの一部ではない） */}
-        <div className="px-3 py-2 border-b bg-gray-50 flex items-center gap-2 shrink-0">
+        <div className="px-3 py-2 border-b bg-gray-50 flex items-center gap-2 shrink-0 flex-wrap">
           <span className="text-sm font-bold text-gray-700">ストアビュー</span>
+          <div className="flex items-center gap-1 ml-1">
+            <button
+              onClick={() => setDevice('mobile')}
+              className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border transition ${isMobile ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
+            ><Smartphone size={14} />スマホ</button>
+            <button
+              onClick={() => setDevice('pc')}
+              className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border transition ${!isMobile ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
+            ><Monitor size={14} />パソコン</button>
+          </div>
           {hasEnglish && (
-            <div className="flex items-center gap-1 ml-2">
+            <div className="flex items-center gap-1 ml-1">
               <button
                 onClick={() => setLang('ja')}
                 className={`text-xs font-bold px-2 py-1 rounded border transition ${lang === 'ja' ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
@@ -180,24 +244,6 @@ export const StoreViewModal: React.FC<Props> = ({
               >English</button>
             </div>
           )}
-          <div className="flex items-center gap-1 ml-2">
-            <button
-              onClick={() => onStoreInfoChange({ ...storeInfo, isAnimated: false })}
-              className={`text-xs font-bold px-2 py-1 rounded border transition ${!storeInfo.isAnimated ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
-              title="動かないスタンプとして表示します"
-            >動かない</button>
-            <button
-              onClick={() => onStoreInfoChange({
-                ...storeInfo,
-                isAnimated: true,
-                // アニメーションスタンプに190円はないため、その場合だけ250円へ繰り上げる
-                price: PRICE_OPTIONS_ANIMATED.includes(storeInfo.price) ? storeInfo.price : PRICE_OPTIONS_ANIMATED[0],
-              })}
-              className={`text-xs font-bold px-2 py-1 rounded border transition ${storeInfo.isAnimated ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
-              title="アニメーションスタンプとして表示します(ホバー/クリックで動きます)"
-            >アニメーション</button>
-          </div>
-          <span className="hidden lg:inline text-[11px] text-gray-400 ml-2">価格・クリエイター名・コピーライトはクリックで変更できます（プレビュー表示のみ）</span>
           <button onClick={onClose} className="ml-auto p-2 hover:bg-gray-200 rounded-full transition shrink-0" title="閉じる">
             <X size={20} />
           </button>
@@ -205,124 +251,129 @@ export const StoreViewModal: React.FC<Props> = ({
 
         {/* ストア本体（背景は真っ白） */}
         <div className="flex-1 overflow-y-auto bg-white">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-            {/* ヘッダー */}
-            <div className="flex flex-col sm:flex-row gap-6">
-              <div className="shrink-0 mx-auto sm:mx-0">
-                <div className="relative w-[240px] h-[240px] flex items-center justify-center">
+          {isMobile ? (
+            /* ===== スマホ表示（LINEアプリ内のストア） ===== */
+            <div className="mx-auto w-full max-w-[420px] px-4 py-6 border-x border-gray-100">
+              <div className="flex justify-center">
+                <div className="w-[240px] h-[240px] flex items-center justify-center">
                   {mainImageUrl ? (
-                    <StoreSticker
-                      imageUrl={mainImageUrl}
-                      config={mainConfig ?? stampToConfig(stamps[0])}
-                      width={MAIN_WIDTH}
-                      height={MAIN_HEIGHT}
-                    />
+                    <StoreSticker imageUrl={mainImageUrl} config={mainConfig ?? stampToConfig(stamps[0])} width={MAIN_WIDTH} height={MAIN_HEIGHT} />
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">メイン画像なし</div>
-                  )}
-                  {/* 再生ボタンはアニメーションスタンプのときだけ表示される */}
-                  {storeInfo.isAnimated && (
-                    <div className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-white/90 border border-gray-200 shadow flex items-center justify-center text-gray-500">
-                      <Play size={22} className="ml-0.5" />
-                    </div>
                   )}
                 </div>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-snug break-words">
-                  {title || <span className="text-gray-300">スタンプ名が未入力です</span>}
-                </h1>
-                <div className="mt-2 text-xs text-[#06C755]">
+              <div className="mt-4 flex justify-center">
+                <span className="border border-gray-300 rounded-full px-4 py-1 text-sm text-gray-700">
                   <EditableText
                     value={storeInfo.creator}
                     onChange={(v) => onStoreInfoChange({ ...storeInfo, creator: v })}
                     placeholder="クリエイター名"
                   />
-                </div>
-                <p className="mt-3 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
-                  {desc || <span className="text-gray-300">説明文が未入力です</span>}
-                </p>
-
-                <div className="mt-4 flex items-center gap-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[#06C755] text-2xl font-bold">￥</span>
-                    <select
-                      value={storeInfo.price}
-                      onChange={(e) => onStoreInfoChange({ ...storeInfo, price: Number(e.target.value) })}
-                      className="text-[#06C755] text-2xl font-bold bg-transparent border border-transparent hover:border-gray-300 rounded cursor-pointer outline-none focus:border-primary-400"
-                      title="価格を選択"
-                    >
-                      {(storeInfo.isAnimated ? PRICE_OPTIONS_ANIMATED : PRICE_OPTIONS_STATIC).map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <span className="text-[11px] text-gray-400">1%還元</span>
-                  </div>
-                  <div className="ml-auto w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-300">
-                    <Heart size={18} />
-                  </div>
-                </div>
-
-                <div className="mt-4 text-center">
-                  <span className="text-sm font-bold text-gray-800 bg-yellow-200 px-1">PayPay決済が利用できるようになりました</span>
-                </div>
-
-                <div className="mt-3 flex gap-3">
-                  <button type="button" className="flex-1 bg-[#4b5563] text-white font-bold py-3 rounded cursor-default">プレゼントする</button>
-                  <button type="button" className="flex-1 bg-[#06C755] text-white font-bold py-3 rounded cursor-default">購入する</button>
-                </div>
+                </span>
               </div>
-            </div>
 
-            {/* 情報欄 */}
-            <div className="mt-8 border-t border-gray-200 pt-4 space-y-2 text-xs text-gray-500">
-              <p>スタンプアレンジ/デコレーションに対応</p>
-              <p>制作者に提供される情報について</p>
-              <p className="leading-relaxed">
-                LINEヤフー株式会社はスタンプ/絵文字/着せかえ制作者への売上レポートの提供のために、お客様の購入情報を利用します。
+              <h1 className="mt-4 text-3xl font-bold text-gray-800 text-center leading-snug break-words">
+                {title || <span className="text-gray-300">スタンプ名が未入力です</span>}
+              </h1>
+
+              <div className="mt-4 flex justify-center">{priceSelect}</div>
+
+              <div className="mt-5 flex items-stretch gap-2">
+                {favoriteButton}
+                <button type="button" className="flex-1 border border-gray-300 text-gray-800 text-lg font-bold py-3 rounded cursor-default">プレゼントする</button>
+                <button type="button" className="flex-1 bg-[#06C755] text-white text-lg font-bold py-3 rounded cursor-default">購入する</button>
+              </div>
+
+              <p className="mt-5 text-base text-gray-500 leading-relaxed whitespace-pre-wrap break-words">
+                {desc || <span className="text-gray-300">説明文が未入力です</span>}
               </p>
-            </div>
 
-            {/* スタンプ一覧 */}
-            <div className="mt-8 border-t border-gray-200 pt-6">
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 sm:gap-4">
-                {stamps.map(s => (
-                  <div
-                    key={s.id}
-                    className={`aspect-[37/32] flex items-center justify-center select-none ${storeInfo.isAnimated ? 'store-sticker-cell cursor-pointer' : ''}`}
-                    onClick={() => {
-                      if (!storeInfo.isAnimated) return;
-                      setPlayingId(null);
-                      window.setTimeout(() => setPlayingId(s.id), 10);
-                    }}
-                    title={storeInfo.isAnimated ? 'クリックすると動きます' : undefined}
-                  >
-                    <div className={`store-sticker-inner w-full h-full ${storeInfo.isAnimated && playingId === s.id ? 'store-sticker-play' : ''}`}>
-                      <StoreSticker
-                        imageUrl={s.dataUrl}
-                        config={stampToConfig(s)}
-                        width={TARGET_WIDTH}
-                        height={TARGET_HEIGHT}
-                      />
-                    </div>
+              <div className="mt-4 text-sm">{noteLine}</div>
+
+              <div className="mt-6">{stickerGrid}</div>
+              {stamps.length === 0 && <p className="text-center text-sm text-gray-400 py-8">表示できるスタンプがありません</p>}
+
+              <div className="mt-8 pb-8">{copyrightLine}</div>
+            </div>
+          ) : (
+            /* ===== パソコン表示（Webのストア） ===== */
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="shrink-0 mx-auto sm:mx-0">
+                  <div className="w-[240px] h-[240px] flex items-center justify-center">
+                    {mainImageUrl ? (
+                      <StoreSticker imageUrl={mainImageUrl} config={mainConfig ?? stampToConfig(stamps[0])} width={MAIN_WIDTH} height={MAIN_HEIGHT} />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">メイン画像なし</div>
+                    )}
                   </div>
-                ))}
-              </div>
-              {stamps.length === 0 && (
-                <p className="text-center text-sm text-gray-400 py-8">表示できるスタンプがありません</p>
-              )}
-            </div>
+                </div>
 
-            {/* コピーライト */}
-            <div className="mt-8 border-t border-gray-200 pt-4 pb-8 text-xs text-gray-500">
-              <EditableText
-                value={storeInfo.copyright}
-                onChange={(v) => onStoreInfoChange({ ...storeInfo, copyright: v })}
-                placeholder="© コピーライトを入力"
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 leading-snug break-words">
+                    {title || <span className="text-gray-300">スタンプ名が未入力です</span>}
+                  </h1>
+                  <div className="mt-2 text-xs text-[#06C755]">
+                    <EditableText
+                      value={storeInfo.creator}
+                      onChange={(v) => onStoreInfoChange({ ...storeInfo, creator: v })}
+                      placeholder="クリエイター名"
+                    />
+                  </div>
+                  <p className="mt-3 text-sm text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
+                    {desc || <span className="text-gray-300">説明文が未入力です</span>}
+                  </p>
+
+                  <div className="mt-4 flex items-center gap-3">
+                    {priceSelect}
+                    <div className="ml-auto">{favoriteButton}</div>
+                  </div>
+
+                  <div className="mt-4 flex gap-3">
+                    <button type="button" className="flex-1 bg-[#4b5563] text-white font-bold py-3 rounded cursor-default">プレゼントする</button>
+                    <button type="button" className="flex-1 bg-[#06C755] text-white font-bold py-3 rounded cursor-default">購入する</button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 border-t border-gray-200 pt-4 text-xs">{noteLine}</div>
+
+              <div className="mt-6">{stickerGrid}</div>
+              {stamps.length === 0 && <p className="text-center text-sm text-gray-400 py-8">表示できるスタンプがありません</p>}
+
+              <div className="mt-8 border-t border-gray-200 pt-4 pb-8">{copyrightLine}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* スタンプのプレビュー（一覧のスタンプをクリックしたとき） */}
+      {previewStamp && (
+        <div
+          className="absolute inset-0 z-[120] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPreviewStamp(null)}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-4 relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewStamp(null)}
+              className="absolute -top-3 -right-3 bg-white border border-gray-200 rounded-full p-1.5 shadow hover:bg-gray-100"
+              title="閉じる"
+            >
+              <X size={18} />
+            </button>
+            <div className="w-[280px] h-[242px] sm:w-[370px] sm:h-[320px]">
+              <StoreSticker
+                imageUrl={previewStamp.dataUrl}
+                config={stampToConfig(previewStamp)}
+                width={TARGET_WIDTH}
+                height={TARGET_HEIGHT}
               />
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
