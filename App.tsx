@@ -1298,13 +1298,16 @@ export default function App() {
                     <h1 className="text-xl font-bold text-gray-800">スタンプ切り出しくん</h1>
                     <button
                       onClick={() => setFillHoles(!fillHoles)}
-                      className={`ml-auto flex items-center gap-1 text-xs font-bold transition-colors ${
-                        fillHoles ? 'text-primary-600' : 'text-gray-400 hover:text-primary-500'
+                      className={`ml-auto flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+                        fillHoles
+                          ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700'
+                          : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
                       }`}
                       title="「○」の中、手と顔の間など、外側とつながっていない囲まれた背景色も透過します(テスト機能)"
                     >
                       <CheckCircle2 size={14} />
                       <span className="hidden sm:inline">囲みも透過</span>
+                      <span>{fillHoles ? 'ON' : 'OFF'}</span>
                     </button>
                     <button
                         onClick={() => setShowApiKeyModal(true)}

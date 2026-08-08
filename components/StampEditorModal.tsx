@@ -141,6 +141,8 @@ export const StampEditorModal: React.FC<Props> = ({
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const panContainerRef = useRef<HTMLDivElement>(null);
   const [previewBg, setPreviewBg] = useState(initialPreviewBg);
+  // スマホでは背景色をタップ式のドロップダウンで選ぶ(横一列だと画面からはみ出すため)
+  const [showBgPicker, setShowBgPicker] = useState(false);
 
   const [mode, setMode] = useState<'move' | 'eraser' | 'wand' | 'restore' | 'text' | 'image' | 'draw'>('move');
   const [isDragging, setIsDragging] = useState(false);
@@ -1168,10 +1170,14 @@ export const StampEditorModal: React.FC<Props> = ({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full flex flex-col h-[95vh] relative">
-        <div className="px-3 py-2 border-b flex items-center bg-primary-50 rounded-t-xl shrink-0 gap-2">
-          <h3 className="font-bold text-gray-700 text-sm mr-auto">スタンプ編集 ({targetWidth}x{targetHeight})</h3>
-          <EditorToolbar viewZoom={viewZoom} onViewZoomChange={setViewZoom} historyIndex={historyIndex} historyLength={history.length} onUndo={undo} onRedo={redo} />
-          <div className="flex items-center gap-2">
+        <div className="px-3 py-2 border-b flex flex-wrap items-center bg-primary-50 rounded-t-xl shrink-0 gap-2">
+          {/* スマホでは横幅が足りず閉じるボタンが画面外に出るため、タイトルはPCのみ表示 */}
+          <h3 className="hidden sm:block font-bold text-gray-700 text-sm mr-auto">スタンプ編集 ({targetWidth}x{targetHeight})</h3>
+          {/* スマホで1行に収まるよう縮められるようにする(中で折り返す) */}
+          <div className="flex-1 min-w-0 sm:flex-none flex justify-center">
+            <EditorToolbar viewZoom={viewZoom} onViewZoomChange={setViewZoom} historyIndex={historyIndex} historyLength={history.length} onUndo={undo} onRedo={redo} />
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={async () => {
                   const next = !localFillHoles;
@@ -1181,15 +1187,49 @@ export const StampEditorModal: React.FC<Props> = ({
                     catch (err) { console.error("Failed to reprocess", err); }
                   }
                 }}
-                className={`flex items-center gap-1 text-xs font-bold transition-colors shrink-0 ${
-                  localFillHoles ? 'text-primary-600' : 'text-gray-400 hover:text-primary-500'
+                className={`flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-full border transition shrink-0 ${
+                  localFillHoles
+                    ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700'
+                    : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
                 }`}
                 title="「○」の中、手と顔の間など、外側とつながっていない囲まれた背景色も透過します"
               >
                 <CheckCircle2 size={14} />
                 <span className="hidden sm:inline">囲みも透過</span>
+                <span>{localFillHoles ? 'ON' : 'OFF'}</span>
               </button>
-               <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200">
+               {/* スマホ: タップでドロップダウン(横一列だと画面からはみ出すため) */}
+               <div className="relative sm:hidden">
+                    <button
+                        onClick={() => setShowBgPicker(!showBgPicker)}
+                        className="flex items-center gap-1 bg-white p-1.5 rounded-lg border border-gray-200"
+                        title="背景色"
+                    >
+                        <span
+                            className={`w-5 h-5 rounded-full block ${(backgroundOptions.find(o => o.value === previewBg) ?? backgroundOptions[0]).color}`}
+                            style={previewBg === 'checker' ? { backgroundImage: `url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAAB5JREFUKFNjYCACAAAHOgD///+F8f///4X/09JvAgBwYw/57yQ+jAAAAABJRU5ErkJggg==')` } : {}}
+                        />
+                        <ChevronDown size={14} className="text-gray-400" />
+                    </button>
+                    {showBgPicker && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowBgPicker(false)} />
+                            <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg border border-gray-200 shadow-lg p-2 grid grid-cols-4 gap-2">
+                                {backgroundOptions.map(opt => (
+                                    <button
+                                        key={opt.value}
+                                        onClick={() => { setPreviewBg(opt.value); setShowBgPicker(false); }}
+                                        className={`w-9 h-9 rounded-full ${opt.color} ${previewBg === opt.value ? 'ring-2 ring-primary-500 ring-offset-1' : ''}`}
+                                        title={opt.label}
+                                        style={opt.value === 'checker' ? { backgroundImage: `url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAAXNSR0IArs4c6QAAAB5JREFUKFNjYCACAAAHOgD///+F8f///4X/09JvAgBwYw/57yQ+jAAAAABJRU5ErkJggg==')` } : {}}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
+               </div>
+               {/* PC: 従来どおり横一列 */}
+               <div className="hidden sm:flex items-center gap-1 bg-white p-1 rounded-lg border border-gray-200">
                     <span className="hidden md:inline text-xs text-gray-400 font-bold px-1">背景色</span>
                     {backgroundOptions.map(opt => (
                         <button
@@ -1201,7 +1241,7 @@ export const StampEditorModal: React.FC<Props> = ({
                         />
                     ))}
                 </div>
-              <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20} /></button>
+              <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition shrink-0"><X size={20} /></button>
           </div>
         </div>
 
