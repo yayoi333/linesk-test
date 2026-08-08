@@ -11,6 +11,7 @@ import { saveProject, loadProject, deleteProject, restoreSourceImages, saveApiKe
 import { StampEditorModal } from './components/StampEditorModal';
 import { ManualCropModal } from './components/ManualCropModal';
 import { TextSetModal } from './components/TextSetModal';
+import { StoreViewModal, StoreInfo } from './components/StoreViewModal';
 import { removeGridLines, detectGridLines } from './lib/gridRemoval';
 
 const isIOSDevice = () => {
@@ -294,6 +295,9 @@ export default function App() {
 
   // Text Set Modal
   const [showTextSetModal, setShowTextSetModal] = useState(false);
+  // ストアビュー(LINEスタンプストア風プレビュー)
+  const [showStoreView, setShowStoreView] = useState(false);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ creator: '', copyright: '', price: 250 });
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -729,10 +733,13 @@ export default function App() {
   // 「枠いっぱいに拡大」切り替え時に、既存スタンプの倍率を計算し直す
   useEffect(() => {
       if (skipAutoProcessRef.current) return;
-      setStamps(prev => prev.map(s => ({
-          ...s,
-          scale: computeFitScale(s.width, s.height, TARGET_WIDTH, TARGET_HEIGHT, autoFit)
-      })));
+      setStamps(prev => prev.map(s => (
+          // 個別編集済みのスタンプは、サイズを調整済みの可能性があるので上書きしない
+          s.isEdited ? s : {
+              ...s,
+              scale: computeFitScale(s.width, s.height, TARGET_WIDTH, TARGET_HEIGHT, autoFit)
+          }
+      )));
   }, [autoFit]);
 
   // Debounced Re-generation Effect (Gap)
@@ -1604,6 +1611,13 @@ export default function App() {
                         >
                           <Crop size={14} />枠いっぱいに拡大{autoFit ? '：ON' : '：OFF'}
                         </button>
+                        <button
+                          onClick={() => setShowStoreView(true)}
+                          className="flex items-center gap-1 bg-[#06C755] hover:bg-[#05a948] text-white font-bold py-1.5 px-3 rounded-lg shadow text-xs sm:text-sm transition"
+                          title="LINEスタンプストア風のプレビューを表示します"
+                        >
+                          <Smartphone size={14} />ストアビュー
+                        </button>
                     </div>
                 </div>
               </div>
@@ -1795,6 +1809,16 @@ export default function App() {
 
       <ManualCropModal sourceImages={sourceImages} isOpen={isManualCropping} onClose={() => { setIsManualCropping(false); setTargetReplaceId(null); setManualCropInitialSourceId(undefined); }} onConfirm={handleManualCropConfirm} onAddSource={handleAddSourceFromModal} initialSourceId={manualCropInitialSourceId} />
       <TextSetModal isOpen={showTextSetModal} onClose={() => setShowTextSetModal(false)} stamps={stamps} onApply={(updatedStamps) => { setStamps(updatedStamps); }} />
+
+      <StoreViewModal
+        isOpen={showStoreView}
+        onClose={() => setShowStoreView(false)}
+        meta={meta}
+        stamps={stamps.filter(s => !s.isExcluded)}
+        mainConfig={mainConfig}
+        storeInfo={storeInfo}
+        onStoreInfoChange={setStoreInfo}
+      />
 
       {showRestoreDialog && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
