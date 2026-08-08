@@ -956,7 +956,25 @@ export const StampEditorModal: React.FC<Props> = ({
       setMainImageLayerOrder(stamp.mainImageLayerOrder ?? 100);
   };
   const handleSave = () => {
-      const updatedStamp: Stamp = { ...stamp, scale, rotation, flipH, flipV, offsetX: offset.x, offsetY: offset.y, dataUrl: workingDataUrl, textObjects, imageLayers, drawingStrokes, currentTolerance: tolerance, mainImageLayerOrder, fillHolesOverride: localFillHoles === fillHoles ? undefined : localFillHoles };
+      // この編集画面で実際に変更があったかを判定する。
+      // 変更があったスタンプには印を付け、一覧の「まとめる強さ」「一括透過」で
+      // 上書き・作り直しされないようにする(一度付いた印は消さない)。
+      const listChanged = (a: unknown[] | undefined, b: unknown[] | undefined) =>
+          JSON.stringify(a ?? []) !== JSON.stringify(b ?? []);
+      const hasEdits =
+          workingDataUrl !== stamp.dataUrl ||
+          scale !== stamp.scale ||
+          rotation !== (stamp.rotation ?? 0) ||
+          flipH !== (stamp.flipH ?? false) ||
+          flipV !== (stamp.flipV ?? false) ||
+          offset.x !== stamp.offsetX ||
+          offset.y !== stamp.offsetY ||
+          mainImageLayerOrder !== (stamp.mainImageLayerOrder ?? 100) ||
+          listChanged(textObjects, stamp.textObjects) ||
+          listChanged(imageLayers, stamp.imageLayers) ||
+          listChanged(drawingStrokes, stamp.drawingStrokes) ||
+          localFillHoles !== (stamp.fillHolesOverride ?? fillHoles);
+      const updatedStamp: Stamp = { ...stamp, scale, rotation, flipH, flipV, offsetX: offset.x, offsetY: offset.y, dataUrl: workingDataUrl, textObjects, imageLayers, drawingStrokes, currentTolerance: tolerance, mainImageLayerOrder, fillHolesOverride: localFillHoles === fillHoles ? undefined : localFillHoles, isEdited: hasEdits || (stamp.isEdited ?? false) };
       onSave(updatedStamp); onClose();
   };
 

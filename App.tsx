@@ -700,6 +700,9 @@ export default function App() {
           try {
               const updates = new Map<string, Stamp>();
               await Promise.all(currentStamps.map(async (stamp) => {
+                  // 個別編集済みのスタンプは、一括透過を動かしても作り直さない
+                  // (消しゴム・追加透過などの編集内容が消えてしまうため)
+                  if (stamp.isEdited) return;
                   // 個別に上書きされているスタンプは全体設定の変更で戻さない
                   const effectiveFillHoles = stamp.fillHolesOverride ?? fillHoles;
                   const affectedByGlobalChange = fillHolesChanged && stamp.fillHolesOverride === undefined;
@@ -746,7 +749,27 @@ export default function App() {
                   newAutoStamps.push(...result.stamps);
               }
               const manualStamps = stampsRef.current.filter(s => s.id.startsWith('stamp-manual-'));
-              setStamps([...newAutoStamps, ...manualStamps]);
+              // 個別編集済みのスタンプは作り直さずそのまま残す。
+              // 作り直した側で同じ場所にできたスタンプは捨て、編集済みを優先する
+              // (元の並び順を保つため、新しいスタンプの順番に沿って差し替える)
+              const editedStamps = stampsRef.current.filter(s => s.isEdited && !s.id.startsWith('stamp-manual-'));
+              const isSameArea = (a: Stamp, b: Stamp) =>
+                  a.sourceImageId === b.sourceImageId &&
+                  a.originalX < b.originalX + b.width && a.originalX + a.width > b.originalX &&
+                  a.originalY < b.originalY + b.height && a.originalY + a.height > b.originalY;
+              const placed = new Set<string>();
+              const mergedStamps: Stamp[] = [];
+              for (const ns of newAutoStamps) {
+                  const edited = editedStamps.find(es => isSameArea(ns, es));
+                  if (edited) {
+                      if (!placed.has(edited.id)) { mergedStamps.push(edited); placed.add(edited.id); }
+                  } else {
+                      mergedStamps.push(ns);
+                  }
+              }
+              // どの新スタンプとも重ならなかった編集済みスタンプも失わないよう末尾に残す
+              for (const es of editedStamps) if (!placed.has(es.id)) mergedStamps.push(es);
+              setStamps([...mergedStamps, ...manualStamps]);
           } catch (err) {
               console.error("Regeneration failed", err);
           } finally {
