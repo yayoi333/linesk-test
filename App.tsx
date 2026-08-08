@@ -297,7 +297,7 @@ export default function App() {
   const [showTextSetModal, setShowTextSetModal] = useState(false);
   // ストアビュー(LINEスタンプストア風プレビュー)
   const [showStoreView, setShowStoreView] = useState(false);
-  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ creator: '', copyright: '', price: 250 });
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>({ creator: '', copyright: '', price: 250, isAnimated: false });
 
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);

@@ -3,13 +3,15 @@ import { X, Heart, Play } from 'lucide-react';
 import { Stamp, MetaData, ExportConfig, TARGET_WIDTH, TARGET_HEIGHT, MAIN_WIDTH, MAIN_HEIGHT } from '../types';
 import { renderAllLayers } from '../lib/zipService';
 
-// LINEクリエイターズマーケットのスタンプ価格帯
-const PRICE_OPTIONS = [120, 250, 370, 490, 610];
+// LINEクリエイターズマーケットの価格帯(動かないスタンプとアニメーションスタンプで異なる)
+const PRICE_OPTIONS_STATIC = [190, 250, 320, 350, 370, 490, 610];
+const PRICE_OPTIONS_ANIMATED = [250, 320, 350, 370, 490, 610];
 
 export interface StoreInfo {
   creator: string;
   copyright: string;
   price: number;
+  isAnimated: boolean;
 }
 
 interface Props {
@@ -178,7 +180,24 @@ export const StoreViewModal: React.FC<Props> = ({
               >English</button>
             </div>
           )}
-          <span className="hidden sm:inline text-[11px] text-gray-400 ml-2">価格・クリエイター名・コピーライトはクリックで変更できます（プレビュー表示のみ）</span>
+          <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={() => onStoreInfoChange({ ...storeInfo, isAnimated: false })}
+              className={`text-xs font-bold px-2 py-1 rounded border transition ${!storeInfo.isAnimated ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
+              title="動かないスタンプとして表示します"
+            >動かない</button>
+            <button
+              onClick={() => onStoreInfoChange({
+                ...storeInfo,
+                isAnimated: true,
+                // アニメーションスタンプに190円はないため、その場合だけ250円へ繰り上げる
+                price: PRICE_OPTIONS_ANIMATED.includes(storeInfo.price) ? storeInfo.price : PRICE_OPTIONS_ANIMATED[0],
+              })}
+              className={`text-xs font-bold px-2 py-1 rounded border transition ${storeInfo.isAnimated ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
+              title="アニメーションスタンプとして表示します(ホバー/クリックで動きます)"
+            >アニメーション</button>
+          </div>
+          <span className="hidden lg:inline text-[11px] text-gray-400 ml-2">価格・クリエイター名・コピーライトはクリックで変更できます（プレビュー表示のみ）</span>
           <button onClick={onClose} className="ml-auto p-2 hover:bg-gray-200 rounded-full transition shrink-0" title="閉じる">
             <X size={20} />
           </button>
@@ -201,9 +220,12 @@ export const StoreViewModal: React.FC<Props> = ({
                   ) : (
                     <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">メイン画像なし</div>
                   )}
-                  <div className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-white/90 border border-gray-200 shadow flex items-center justify-center text-gray-500">
-                    <Play size={22} className="ml-0.5" />
-                  </div>
+                  {/* 再生ボタンはアニメーションスタンプのときだけ表示される */}
+                  {storeInfo.isAnimated && (
+                    <div className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-white/90 border border-gray-200 shadow flex items-center justify-center text-gray-500">
+                      <Play size={22} className="ml-0.5" />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -231,7 +253,7 @@ export const StoreViewModal: React.FC<Props> = ({
                       className="text-[#06C755] text-2xl font-bold bg-transparent border border-transparent hover:border-gray-300 rounded cursor-pointer outline-none focus:border-primary-400"
                       title="価格を選択"
                     >
-                      {PRICE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                      {(storeInfo.isAnimated ? PRICE_OPTIONS_ANIMATED : PRICE_OPTIONS_STATIC).map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                     <span className="text-[11px] text-gray-400">1%還元</span>
                   </div>
@@ -266,14 +288,15 @@ export const StoreViewModal: React.FC<Props> = ({
                 {stamps.map(s => (
                   <div
                     key={s.id}
-                    className="store-sticker-cell aspect-[37/32] flex items-center justify-center cursor-pointer select-none"
+                    className={`aspect-[37/32] flex items-center justify-center select-none ${storeInfo.isAnimated ? 'store-sticker-cell cursor-pointer' : ''}`}
                     onClick={() => {
+                      if (!storeInfo.isAnimated) return;
                       setPlayingId(null);
                       window.setTimeout(() => setPlayingId(s.id), 10);
                     }}
-                    title="クリックすると動きます"
+                    title={storeInfo.isAnimated ? 'クリックすると動きます' : undefined}
                   >
-                    <div className={`store-sticker-inner w-full h-full ${playingId === s.id ? 'store-sticker-play' : ''}`}>
+                    <div className={`store-sticker-inner w-full h-full ${storeInfo.isAnimated && playingId === s.id ? 'store-sticker-play' : ''}`}>
                       <StoreSticker
                         imageUrl={s.dataUrl}
                         config={stampToConfig(s)}
