@@ -6,6 +6,17 @@ import { renderAllLayers } from '../lib/zipService';
 // LINEクリエイターズマーケットの価格帯(動かないスタンプ)
 const PRICE_OPTIONS = [190, 250, 320, 350, 370, 490, 610];
 
+// スマホ(LINEアプリ内)はコイン表示のため、円→コインの対応表を持つ
+const COIN_BY_PRICE: Record<number, number> = {
+  190: 70,
+  250: 100,
+  320: 120,
+  350: 130,
+  370: 150,
+  490: 200,
+  610: 250,
+};
+
 export interface StoreInfo {
   creator: string;
   copyright: string;
@@ -169,6 +180,23 @@ export const StoreViewModal: React.FC<Props> = ({
     </div>
   );
 
+  // スマホは表示をコインにする。選ぶときは金額（円）のまま選べるよう、
+  // 透明の <select> を表示の上に重ねている
+  const coinPriceSelect = (
+    <div className="relative inline-flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50" title="クリックすると金額で選べます">
+      <span className="w-6 h-6 rounded-full bg-[#f0b400] text-white text-sm font-bold flex items-center justify-center shrink-0">L</span>
+      <span className="text-2xl font-bold text-gray-800">{COIN_BY_PRICE[storeInfo.price] ?? storeInfo.price}</span>
+      <select
+        value={storeInfo.price}
+        onChange={(e) => onStoreInfoChange({ ...storeInfo, price: Number(e.target.value) })}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        aria-label="価格を選択"
+      >
+        {PRICE_OPTIONS.map(p => <option key={p} value={p}>￥{p}（{COIN_BY_PRICE[p] ?? p}コイン）</option>)}
+      </select>
+    </div>
+  );
+
   const favoriteButton = (
     <button
       onClick={() => setFavorite(!favorite)}
@@ -255,7 +283,7 @@ export const StoreViewModal: React.FC<Props> = ({
             /* ===== スマホ表示（LINEアプリ内のストア） ===== */
             <div className="mx-auto w-full max-w-[420px] px-4 py-6 border-x border-gray-100">
               <div className="flex justify-center">
-                <div className="w-[240px] h-[240px] flex items-center justify-center">
+                <div className="w-[170px] h-[170px] flex items-center justify-center">
                   {mainImageUrl ? (
                     <StoreSticker imageUrl={mainImageUrl} config={mainConfig ?? stampToConfig(stamps[0])} width={MAIN_WIDTH} height={MAIN_HEIGHT} />
                   ) : (
@@ -278,7 +306,7 @@ export const StoreViewModal: React.FC<Props> = ({
                 {title || <span className="text-gray-300">スタンプ名が未入力です</span>}
               </h1>
 
-              <div className="mt-4 flex justify-center">{priceSelect}</div>
+              <div className="mt-4 flex justify-center">{coinPriceSelect}</div>
 
               <div className="mt-5 flex items-stretch gap-2">
                 {favoriteButton}
