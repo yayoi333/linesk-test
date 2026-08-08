@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Stamp, TextObject, ImageLayerObject, DrawingStroke, TARGET_WIDTH, TARGET_HEIGHT } from '../types';
-import { Check, X, Sliders, Layers, Trash2, Move, Type, Image as ImageIcon, PenTool, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eraser, Wand2, CheckCircle2 } from 'lucide-react';
+import { Check, X, Sliders, Layers, Trash2, Move, Type, Image as ImageIcon, PenTool, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eraser, Wand2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { drawTextOnCanvas } from '../lib/zipService';
 import { reprocessStampWithTolerance } from '../lib/imageProcessing';
 import { saveMaterial, loadMaterials, deleteMaterial, MaterialItem } from '../lib/storage';
@@ -949,6 +949,12 @@ export const StampEditorModal: React.FC<Props> = ({
           }
       }, 300);
   };
+  const handleReset = () => {
+      addToHistory({}); setScale(initialScale ?? stamp.scale); setRotation(initialRotation ?? stamp.rotation ?? 0); setOffset(initialOffset ?? {x:0, y:0});
+      setFlipH(stamp.flipH ?? false); setFlipV(stamp.flipV ?? false); setTolerance(stamp.currentTolerance || 50); setWorkingDataUrl(stamp.dataUrl);
+      setTextObjects(initialTextObjects ?? stamp.textObjects ?? []); setImageLayers(initialImageLayers ?? stamp.imageLayers ?? []); setDrawingStrokes(initialDrawingStrokes ?? stamp.drawingStrokes ?? []);
+      setMainImageLayerOrder(stamp.mainImageLayerOrder ?? 100);
+  };
   const handleSave = () => {
       const updatedStamp: Stamp = { ...stamp, scale, rotation, flipH, flipV, offsetX: offset.x, offsetY: offset.y, dataUrl: workingDataUrl, textObjects, imageLayers, drawingStrokes, currentTolerance: tolerance, mainImageLayerOrder, fillHolesOverride: localFillHoles === fillHoles ? undefined : localFillHoles };
       onSave(updatedStamp); onClose();
@@ -1168,9 +1174,10 @@ export const StampEditorModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full flex flex-col h-[95vh] relative">
-        <div className="px-3 py-2 border-b flex flex-wrap items-center bg-primary-50 rounded-t-xl shrink-0 gap-2">
+    // スマホでは作業領域を広く取るため全画面表示にする(PCは従来どおり中央に浮かせる)
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-0 sm:p-4">
+      <div className="bg-white rounded-none sm:rounded-xl shadow-2xl max-w-none sm:max-w-4xl w-full flex flex-col h-full sm:h-[95vh] relative">
+        <div className="px-3 py-2 border-b flex flex-wrap items-center bg-primary-50 sm:rounded-t-xl shrink-0 gap-2">
           {/* スマホでは横幅が足りず閉じるボタンが画面外に出るため、タイトルはPCのみ表示 */}
           <h3 className="hidden sm:block font-bold text-gray-700 text-sm mr-auto">スタンプ編集 ({targetWidth}x{targetHeight})</h3>
           {/* スマホで1行に収まるよう縮められるようにする(中で折り返す) */}
@@ -1214,7 +1221,8 @@ export const StampEditorModal: React.FC<Props> = ({
                     {showBgPicker && (
                         <>
                             <div className="fixed inset-0 z-10" onClick={() => setShowBgPicker(false)} />
-                            <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg border border-gray-200 shadow-lg p-2 grid grid-cols-4 gap-2">
+                            {/* w-max がないと絶対配置の幅が親ボタン幅に制限され、色の丸が重なってしまう */}
+                            <div className="absolute right-0 top-full mt-1 z-20 w-max bg-white rounded-lg border border-gray-200 shadow-lg p-2 grid grid-cols-4 gap-2">
                                 {backgroundOptions.map(opt => (
                                     <button
                                         key={opt.value}
@@ -1526,21 +1534,20 @@ export const StampEditorModal: React.FC<Props> = ({
 
         </div>
 
-        <div className="px-3 py-2 border-t bg-gray-50 rounded-b-xl shrink-0 flex flex-wrap items-center justify-center gap-2">
+        <div className="px-3 py-2 border-t bg-gray-50 sm:rounded-b-xl shrink-0 flex flex-wrap items-center justify-center gap-2">
              <div className="flex flex-wrap gap-1 items-center justify-center">
                  <ModeSelector
                     mode={mode} onModeChange={setMode} hasOriginalImage={!!originalImage}
                     onAddText={handleAddText} onAddImageLayer={handleAddImageLayer}
-                    onReset={() => {
-                        addToHistory({}); setScale(initialScale ?? stamp.scale); setRotation(initialRotation ?? stamp.rotation ?? 0); setOffset(initialOffset ?? {x:0, y:0});
-                        setFlipH(stamp.flipH ?? false); setFlipV(stamp.flipV ?? false); setTolerance(stamp.currentTolerance || 50); setWorkingDataUrl(stamp.dataUrl); 
-                        setTextObjects(initialTextObjects ?? stamp.textObjects ?? []); setImageLayers(initialImageLayers ?? stamp.imageLayers ?? []); setDrawingStrokes(initialDrawingStrokes ?? stamp.drawingStrokes ?? []);
-                        setMainImageLayerOrder(stamp.mainImageLayerOrder ?? 100);
-                    }}
+                    onReset={handleReset}
                     onOpenMaterialLibrary={() => setShowMaterialLibrary(true)} materialsCount={materials.length}
                  />
              </div>
              <div className="flex items-center gap-2 shrink-0">
+                {/* スマホではリセットが1段占有してしまうため、キャンセルの左に移動 */}
+                <button onClick={handleReset} className="sm:hidden flex items-center gap-1 text-xs text-gray-600 px-2 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition" title="リセット">
+                    <RotateCcw size={14} /> リセット
+                </button>
                 <button onClick={onClose} className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded-lg transition">キャンセル</button>
                 <button onClick={handleSave} className="px-4 py-1.5 text-sm bg-primary-600 text-white font-bold rounded-lg shadow hover:bg-primary-700 transition flex items-center gap-1">
                     <Check size={16} /> 完了

@@ -115,8 +115,9 @@ export const ModeSelector: React.FC<ModeSelectorProps> = ({
              </div>
          )}
         
-        <div className="flex items-center gap-2 bg-gray-100 p-2 rounded-lg">
-            <button 
+        {/* スマホでは1段まるごと使ってしまうため非表示。代わりにキャンセルの左に置いている */}
+        <div className="hidden sm:flex items-center gap-2 bg-gray-100 p-2 rounded-lg">
+            <button
                 onClick={onReset}
                 className="flex items-center gap-1 text-xs text-gray-600 px-2 py-1 hover:bg-white rounded"
             >
