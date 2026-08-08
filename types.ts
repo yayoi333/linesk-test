@@ -90,6 +90,7 @@ export interface Stamp {
   offsetX: number;
   offsetY: number;
   currentTolerance?: number; // Track the tolerance used for this stamp
+  fillHolesOverride?: boolean; // 「囲みも透過」を個別に上書き（未設定なら全体設定に従う）
   textObjects?: TextObject[]; // Added text objects
   
   // Future features

@@ -4,10 +4,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Download, Loader2, Image as ImageIcon, Grid, Languages, Settings, ExternalLink, Plus, X as XIcon, Save, GripVertical, Smartphone, Copy, Check, Wand2, Crop, Sliders, Move, ChevronDown, ChevronUp, Info, CheckCircle2, RotateCw, Layers, Minus, Plus as PlusIcon, Trash2, Type, Lock } from 'lucide-react';
 import { AppStep, Stamp, MetaData, ExportConfig, SourceImage, TARGET_WIDTH, TARGET_HEIGHT, MAIN_WIDTH, MAIN_HEIGHT, TAB_WIDTH, TAB_HEIGHT, TextObject, ImageLayerObject, DrawingStroke } from './types';
-import { processUploadedImage, reprocessStampWithTolerance } from './lib/imageProcessing';
-import { generateMeta, setGeminiApiKey, translateMeta } from './lib/gemini';
+import { processUploadedImage, reprocessStampWithTolerance, computeFitScale } from './lib/imageProcessing';
+import { translateMeta } from './lib/gemini';
 import { createAndDownloadZip, createFinalImageBlob, renderAllLayers, loadProjectFromZip } from './lib/zipService';
-import { saveProject, loadProject, deleteProject, deleteAllStoredData, loadGeminiApiKey, removeGeminiApiKey, restoreSourceImages, saveGeminiApiKey } from './lib/storage';
+import { saveProject, loadProject, deleteProject, restoreSourceImages, saveApiKey, loadApiKey, removeApiKey, clearMaterials } from './lib/storage';
 import { StampEditorModal } from './components/StampEditorModal';
 import { ManualCropModal } from './components/ManualCropModal';
 import { TextSetModal } from './components/TextSetModal';
@@ -101,7 +101,7 @@ async function sha256(message: string) {
 
 async function checkAccess() {
   // セッション中に認証済みならスキップ
-  if (localStorage.getItem('auth_verified') === 'true') {
+  if (localStorage.getItem('auth_verified_test') === 'true') {
     return true;
   }
 
@@ -117,7 +117,7 @@ async function checkAccess() {
   const VALID_HASH = "1803660558f96fc39ee55b552e5584ad9e8ebe28782727da811713acbfcaa54b";
 
   if (keyHash === VALID_HASH) {
-    localStorage.setItem('auth_verified', 'true');
+    localStorage.setItem('auth_verified_test', 'true');
     return true;
   }
   return false;
@@ -248,7 +248,6 @@ export default function App() {
   const isOverLimit = validStampsCount > 40;
   const [isTranslating, setIsTranslating] = useState(false);
   const [descriptionHintOpen, setDescriptionHintOpen] = useState(false);
-  const [isGeneratingMeta, setIsGeneratingMeta] = useState(false);
 
   // Editor State
   const [editingStamp, setEditingStamp] = useState<Stamp | null>(null);
@@ -261,10 +260,14 @@ export default function App() {
   
   // Global Settings
   const [globalTolerance, setGlobalTolerance] = useState(20);
-  const [gapTolerance, setGapTolerance] = useState(15); 
+  const [gapTolerance, setGapTolerance] = useState(15);
   const [isGapToleranceLocked, setIsGapToleranceLocked] = useState(false);
   const [isGlobalToleranceLocked, setIsGlobalToleranceLocked] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  // テスト機能: 囲まれた背景(○の中・手と顔の間など)も透過するか
+  const [fillHoles, setFillHoles] = useState(true);
+  // テスト機能: 小さい切り出し画像を余白10pxを残して枠いっぱいに拡大するか
+  const [autoFit, setAutoFit] = useState(false);
 
   // New Image Processing State
   const [showSourceSelectModal, setShowSourceSelectModal] = useState(false);
@@ -302,7 +305,30 @@ export default function App() {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [savedApiKey, setSavedApiKey] = useState<string | null>(null);
-  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+
+  // Delete All Data State
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [deleteAllIncludeApiKey, setDeleteAllIncludeApiKey] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+
+  const handleDeleteStamp = async () => {
+    if (!deleteTarget) return;
+    const nextStamps = stamps.filter(s => s.id !== deleteTarget.id);
+    const nextMainConfig = mainConfig?.id === deleteTarget.id ? null : mainConfig;
+    const nextTabConfig = tabConfig?.id === deleteTarget.id ? null : tabConfig;
+    setStamps(nextStamps);
+    setMainConfig(nextMainConfig);
+    setTabConfig(nextTabConfig);
+    setDeleteTarget(null);
+    // 「この操作は取り消せません」の表示どおり、削除を即時に保存へ反映する。
+    // （自動保存は stamps が空になったときや復元直後のスキップ期間中は動かないため、ここで明示的に保存する）
+    try {
+      await saveProject(nextStamps, sourceImages, nextMainConfig, nextTabConfig, meta, globalTolerance, gapTolerance, previewBg);
+      setLastSavedAt(new Date().toISOString());
+    } catch (err) {
+      console.error('削除の即時保存に失敗:', err);
+    }
+  };
 
   const handleUnifyScale = () => {
     if (stamps.length === 0) return;
@@ -327,6 +353,8 @@ export default function App() {
   // Ref to skip auto-processing during restore
   const skipAutoProcessRef = useRef(false);
   const skipAutoSaveRef = useRef(false);
+  // 直前に一括再処理で使ったfillHoles値(トグルだけの変更を検知するため)
+  const lastFillHolesRef = useRef(fillHoles);
 
   // Drag and Drop Refs
   const dragItem = useRef<number | null>(null);
@@ -336,19 +364,16 @@ export default function App() {
   useEffect(() => { stampsRef.current = stamps; }, [stamps]);
 
   // --- Load API Key on Mount ---
+  // 暗号化保存されたAPIキーを復号して読み込む（旧形式の平文キーは自動で暗号化形式へ移行される）
   useEffect(() => {
-    let cancelled = false;
-    const loadKey = async () => {
-      const key = await loadGeminiApiKey();
-      if (cancelled || !key) return;
-      setSavedApiKey(key);
-      setGeminiApiKey(key);
-      setApiKeyInput(key);
-    };
-    loadKey();
-    return () => {
-      cancelled = true;
-    };
+    loadApiKey()
+      .then(key => {
+        if (key) {
+          setSavedApiKey(key);
+          setApiKeyInput(key);
+        }
+      })
+      .catch(err => console.error('APIキーの読み込みに失敗:', err));
   }, []);
 
   // --- Restore Check on Mount ---
@@ -541,58 +566,16 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 2500);
   };
 
-  const persistProjectNow = async (
-    nextStamps = stamps,
-    nextSourceImages = sourceImages,
-    nextMainConfig = mainConfig,
-    nextTabConfig = tabConfig,
-    nextMeta = meta,
-    nextGlobalTolerance = globalTolerance,
-    nextGapTolerance = gapTolerance,
-    nextPreviewBg = previewBg
-  ) => {
-    await saveProject(
-      nextStamps,
-      nextSourceImages,
-      nextMainConfig,
-      nextTabConfig,
-      nextMeta,
-      nextGlobalTolerance,
-      nextGapTolerance,
-      nextPreviewBg
-    );
-    setLastSavedAt(new Date().toISOString());
-  };
-
-  const handleDeleteStamp = async () => {
-    if (!deleteTarget) return;
-    const nextStamps = stamps.filter(s => s.id !== deleteTarget.id);
-    const nextMainConfig = mainConfig?.id === deleteTarget.id ? null : mainConfig;
-    const nextTabConfig = tabConfig?.id === deleteTarget.id ? null : tabConfig;
-    setStamps(nextStamps);
-    setMainConfig(nextMainConfig);
-    setTabConfig(nextTabConfig);
-    setDeleteTarget(null);
-    try {
-      await persistProjectNow(nextStamps, sourceImages, nextMainConfig, nextTabConfig);
-      showToast('削除して保存しました');
-    } catch (err) {
-      console.error('削除後の保存に失敗:', err);
-      alert('削除後の保存に失敗しました。手動保存をお試しください。');
-    }
-  };
-
   const handleSaveApiKey = async () => {
     const trimmed = apiKeyInput.trim();
     if (trimmed) {
       try {
-        await saveGeminiApiKey(trimmed);
+        await saveApiKey(trimmed);
         setSavedApiKey(trimmed);
-        setGeminiApiKey(trimmed);
         showToast('APIキーを保存しました');
-      } catch (err: any) {
-        console.error('APIキー保存に失敗:', err);
-        alert(err?.message || 'APIキーの保存に失敗しました。');
+      } catch (err) {
+        console.error('APIキーの保存に失敗:', err);
+        alert('APIキーの保存に失敗しました');
         return;
       }
     }
@@ -600,30 +583,45 @@ export default function App() {
   };
 
   const handleRemoveApiKey = () => {
-    removeGeminiApiKey();
-    setGeminiApiKey('');
+    removeApiKey();
     setSavedApiKey(null);
     setApiKeyInput('');
     showToast('APIキーを削除しました');
   };
 
+  // --- Delete All Data ---
   const handleDeleteAllData = async () => {
-    await deleteAllStoredData();
-    setStamps([]);
-    setSourceImages([]);
-    setMainConfig(null);
-    setTabConfig(null);
-    setMeta({ stampNameJa: '', stampDescJa: '', stampNameEn: '', stampDescEn: '' });
-    setGlobalTolerance(20);
-    setGapTolerance(15);
-    setPreviewBg('checker');
-    setSavedApiKey(null);
-    setApiKeyInput('');
-    setGeminiApiKey('');
-    setLastSavedAt(null);
-    setShowDeleteAllDialog(false);
-    setStep(AppStep.UPLOAD);
-    showToast('保存データをすべて削除しました');
+    setIsDeletingAll(true);
+    try {
+      await deleteProject();
+      await clearMaterials();
+      if (deleteAllIncludeApiKey) {
+        removeApiKey();
+        setSavedApiKey(null);
+        setApiKeyInput('');
+      }
+      setStamps([]);
+      setSourceImages([]);
+      setMainConfig(null);
+      setTabConfig(null);
+      setMeta({ stampNameJa: '', stampDescJa: '', stampNameEn: '', stampDescEn: '' });
+      setLastSavedAt(null);
+      setHasGridLines(false);
+      // まとめる強さ・一括透過・囲みも透過を初期値に戻す(削除後に前回の値が残らないように)
+      setGlobalTolerance(20);
+      setGapTolerance(15);
+      setFillHoles(true);
+      setAutoFit(false);
+      setShowDeleteAllModal(false);
+      setDeleteAllIncludeApiKey(false);
+      setStep(AppStep.UPLOAD);
+      showToast('保存データをすべて削除しました');
+    } catch (err) {
+      console.error('全データ削除に失敗:', err);
+      alert('データの削除に失敗しました');
+    } finally {
+      setIsDeletingAll(false);
+    }
   };
 
   // --- Auto Save ---
@@ -696,13 +694,17 @@ export default function App() {
           if (skipAutoProcessRef.current) return;
           const currentStamps = stampsRef.current;
           if (currentStamps.length === 0) return;
-          const needsUpdate = currentStamps.some(s => s.originalDataUrl && s.currentTolerance !== globalTolerance);
+          const fillHolesChanged = lastFillHolesRef.current !== fillHoles;
+          const needsUpdate = fillHolesChanged || currentStamps.some(s => s.originalDataUrl && s.currentTolerance !== globalTolerance);
           if (!needsUpdate) return;
           try {
               const updates = new Map<string, Stamp>();
               await Promise.all(currentStamps.map(async (stamp) => {
-                  if (stamp.originalDataUrl && stamp.currentTolerance !== globalTolerance) {
-                      const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, globalTolerance);
+                  // 個別に上書きされているスタンプは全体設定の変更で戻さない
+                  const effectiveFillHoles = stamp.fillHolesOverride ?? fillHoles;
+                  const affectedByGlobalChange = fillHolesChanged && stamp.fillHolesOverride === undefined;
+                  if (stamp.originalDataUrl && (affectedByGlobalChange || stamp.currentTolerance !== globalTolerance)) {
+                      const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, globalTolerance, effectiveFillHoles);
                       updates.set(stamp.id, {
                           ...stamp,
                           dataUrl: newDataUrl,
@@ -713,12 +715,22 @@ export default function App() {
               if (updates.size > 0) {
                   setStamps(prev => prev.map(s => updates.get(s.id) || s));
               }
+              lastFillHolesRef.current = fillHoles;
           } catch (err) {
               console.error("Bulk processing failed", err);
           }
-      }, 100); 
+      }, 100);
       return () => clearTimeout(timer);
-  }, [globalTolerance]);
+  }, [globalTolerance, fillHoles]);
+
+  // 「枠いっぱいに拡大」切り替え時に、既存スタンプの倍率を計算し直す
+  useEffect(() => {
+      if (skipAutoProcessRef.current) return;
+      setStamps(prev => prev.map(s => ({
+          ...s,
+          scale: computeFitScale(s.width, s.height, TARGET_WIDTH, TARGET_HEIGHT, autoFit)
+      })));
+  }, [autoFit]);
 
   // Debounced Re-generation Effect (Gap)
   useEffect(() => {
@@ -730,7 +742,7 @@ export default function App() {
           try {
               let newAutoStamps: Stamp[] = [];
               for (const src of sourceImages) {
-                  const result = await processUploadedImage(src.file, src.id, globalTolerance, gapTolerance);
+                  const result = await processUploadedImage(src.file, src.id, globalTolerance, gapTolerance, fillHoles, autoFit);
                   newAutoStamps.push(...result.stamps);
               }
               const manualStamps = stampsRef.current.filter(s => s.id.startsWith('stamp-manual-'));
@@ -785,17 +797,12 @@ export default function App() {
     setSourceImages(prev => [...prev, ...newSources]);
   };
 
-  const removeSourceImage = async (id: string) => {
-      const nextSourceImages = sourceImages.filter(img => img.id !== id);
-      setSourceImages(nextSourceImages);
-      if (nextSourceImages.length === 0) setHasGridLines(false);
-      if (step === AppStep.EDIT) {
-        try {
-          await persistProjectNow(stamps, nextSourceImages);
-        } catch (err) {
-          console.error('画像削除後の保存に失敗:', err);
-        }
-      }
+  const removeSourceImage = (id: string) => {
+      setSourceImages(prev => {
+          const next = prev.filter(img => img.id !== id);
+          if (next.length === 0) setHasGridLines(false);
+          return next;
+      });
   };
 
   const startProcessing = async () => {
@@ -806,7 +813,7 @@ export default function App() {
           await deleteProject();
           let allStamps: Stamp[] = [];
           for (const source of sourceImages) {
-             const result = await processUploadedImage(source.file, source.id, globalTolerance, gapTolerance);
+             const result = await processUploadedImage(source.file, source.id, globalTolerance, gapTolerance, fillHoles, autoFit);
              allStamps = [...allStamps, ...result.stamps];
           }
           setStamps(allStamps);
@@ -941,7 +948,7 @@ export default function App() {
       setIsProcessing(true); 
       try {
         if (method === 'auto') {
-            const result = await processUploadedImage(selectedSourceForNewStamp.file, selectedSourceForNewStamp.id, globalTolerance, gapTolerance);
+            const result = await processUploadedImage(selectedSourceForNewStamp.file, selectedSourceForNewStamp.id, globalTolerance, gapTolerance, fillHoles, autoFit);
             const timestamp = Date.now();
             const newStamps = result.stamps.map((s, i) => ({
                 ...s,
@@ -1089,44 +1096,6 @@ export default function App() {
       alert(`翻訳に失敗しました: ${e?.message || '原因不明のエラー'}`);
     } finally {
       setIsTranslating(false);
-    }
-  };
-
-  const handleGenerateMeta = async () => {
-    if (!savedApiKey) {
-      setShowApiKeyModal(true);
-      return alert('AI生成にはGemini APIキーの設定が必要です。');
-    }
-
-    const confirmed = window.confirm('AI生成では、代表スタンプ画像と入力済みテキストが外部（Google Gemini）へ送信されます。実行しますか？');
-    if (!confirmed) return;
-
-    const sampleStamp = stamps.find(s => !s.isExcluded) || stamps[0];
-    setIsGeneratingMeta(true);
-    try {
-      const result = await generateMeta(
-        {
-          imageDataUrl: sampleStamp?.dataUrl,
-          stampCount: validStampsCount || stamps.length,
-          existingMeta: meta,
-        },
-        savedApiKey
-      );
-
-      const nextMeta = {
-        stampNameJa: result.stampNameJa || meta.stampNameJa,
-        stampDescJa: result.stampDescJa || meta.stampDescJa,
-        stampNameEn: result.stampNameEn || meta.stampNameEn,
-        stampDescEn: result.stampDescEn || meta.stampDescEn,
-      };
-      setMeta(nextMeta);
-      await persistProjectNow(stamps, sourceImages, mainConfig, tabConfig, nextMeta);
-      showToast('タイトル・説明文をAI生成しました');
-    } catch (e: any) {
-      console.error('AI生成エラー:', e);
-      alert(`AI生成に失敗しました: ${e?.message || '原因不明のエラー'}`);
-    } finally {
-      setIsGeneratingMeta(false);
     }
   };
 
@@ -1328,8 +1297,18 @@ export default function App() {
                     <div className="bg-primary-500 p-2 rounded-lg text-white"><Grid size={24} /></div>
                     <h1 className="text-xl font-bold text-gray-800">スタンプ切り出しくん</h1>
                     <button
+                      onClick={() => setFillHoles(!fillHoles)}
+                      className={`ml-auto flex items-center gap-1 text-xs font-bold transition-colors ${
+                        fillHoles ? 'text-primary-600' : 'text-gray-400 hover:text-primary-500'
+                      }`}
+                      title="「○」の中、手と顔の間など、外側とつながっていない囲まれた背景色も透過します(テスト機能)"
+                    >
+                      <CheckCircle2 size={14} />
+                      <span className="hidden sm:inline">囲みも透過</span>
+                    </button>
+                    <button
                         onClick={() => setShowApiKeyModal(true)}
-                        className={`ml-auto flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+                        className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition ${
                             savedApiKey
                                 ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
                                 : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-gray-100'
@@ -1502,10 +1481,10 @@ export default function App() {
                 <p className="text-gray-500 mb-4 text-sm">またはクリックして選択 (最大50枚)</p>
                 <div className="inline-block bg-primary-600 text-white px-6 py-3 rounded-full font-bold shadow-lg shadow-primary-200">画像を追加する</div>
               </div>
-              <div className="mb-4 bg-blue-50 border border-blue-100 text-blue-700 rounded-xl p-3 text-xs flex items-start gap-2 text-left">
-                <Info size={15} className="mt-0.5 shrink-0" />
-                <p>アップロードした画像はこの端末内（ブラウザ）だけで処理・保存され、外部には送信されません。AI機能を押した場合のみ、確認後にGoogleへ送信されます。</p>
-              </div>
+              <p className="text-[11px] text-gray-400 mb-4 flex items-center justify-center gap-1">
+                <Lock size={12} className="shrink-0" />
+                アップロードした画像はこの端末内（ブラウザ）だけで処理・保存され、外部には送信されません
+              </p>
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex items-center gap-4 justify-center mb-3">
                   <div className="h-px bg-gray-300 w-12"></div>
@@ -1588,6 +1567,17 @@ export default function App() {
                         <button onClick={() => { const updatedStamps = stamps.map(s => ({ ...s, textObjects: (s.textObjects ?? []).filter(t => !t.id.startsWith('txt-set-')), })); setStamps(updatedStamps); showToast('一括削除しました'); }} className={`flex items-center gap-1 bg-white border border-gray-300 hover:bg-red-50 hover:border-red-300 text-gray-600 hover:text-red-600 font-bold py-1.5 px-3 rounded-lg shadow-sm text-xs sm:text-sm transition ${stamps.some(s => s.textObjects?.some(t => t.id.startsWith('txt-set-'))) ? '' : 'opacity-30 pointer-events-none'}`}><Trash2 size={14} />一括テキスト削除</button>
                         <button onClick={handleUnifyScale} className="flex items-center gap-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 font-bold py-1.5 px-3 rounded-lg shadow-sm text-xs sm:text-sm transition"><Sliders size={14} />サイズ揃え</button>
                         <button onClick={handleCenterAll} className="flex items-center gap-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 font-bold py-1.5 px-3 rounded-lg shadow-sm text-xs sm:text-sm transition"><Move size={14} />中央揃え</button>
+                        <button
+                          onClick={() => setAutoFit(!autoFit)}
+                          className={`flex items-center gap-1 font-bold py-1.5 px-3 rounded-lg shadow-sm text-xs sm:text-sm transition border ${
+                            autoFit
+                              ? 'bg-primary-50 border-primary-300 text-primary-700 hover:bg-primary-100'
+                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                          title="切り出した画像が小さいとき、余白10pxを残して枠いっぱいに拡大します"
+                        >
+                          <Crop size={14} />枠いっぱいに拡大{autoFit ? '：ON' : '：OFF'}
+                        </button>
                     </div>
                 </div>
               </div>
@@ -1691,24 +1681,20 @@ export default function App() {
                         <div>
                             <div className="flex justify-between items-end mb-1"><label className="block text-sm font-medium text-gray-600">メイン画像 (240x240)</label><button onClick={() => downloadSpecialStamp(mainConfig, MAIN_WIDTH, MAIN_HEIGHT, 'main.png')} disabled={!mainConfig} className="text-gray-400 hover:text-primary-600 disabled:opacity-30" title="ダウンロード"><Download size={18} /></button></div>
                             <select className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 mb-2 bg-primary-50" value={mainConfig?.id || ''} onChange={(e) => handleMainSelect(e.target.value)}>{stamps.map((s, i) => (<option key={s.id} value={s.id}>{s.isExcluded ? `(除外) スタンプ ${i + 1}` : `No.${i + 1} のスタンプ`}</option>))}</select>
-                            <CanvasPreview config={mainConfig} width={MAIN_WIDTH} height={MAIN_HEIGHT} previewBg={previewBg} stamps={stamps} onClick={() => { setEditingSpecialType('main'); const s = stamps.find(x => x.id === mainConfig?.id); if(s) setEditingStamp(s); }} />
+                            <CanvasPreview config={mainConfig} width={MAIN_WIDTH} height={MAIN_HEIGHT} previewBg={previewBg} stamps={stamps} onClick={() => { const s = stamps.find(x => x.id === mainConfig?.id); if(s && mainConfig) { setEditingSpecialType('main'); /* 保存済みの編集内容（消しゴム編集後の画像・反転・レイヤー順）を引き継いで開く */ setEditingStamp({ ...s, dataUrl: mainConfig.customDataUrl ?? s.dataUrl, flipH: mainConfig.flipH ?? false, flipV: mainConfig.flipV ?? false, mainImageLayerOrder: mainConfig.mainImageLayerOrder ?? 100 }); } }} />
                         </div>
                         <div>
                              <div className="flex justify-between items-end mb-1"><label className="block text-sm font-medium text-gray-600">タブ画像 (96x74)</label><button onClick={() => downloadSpecialStamp(tabConfig, TAB_WIDTH, TAB_HEIGHT, 'tab.png')} disabled={!tabConfig} className="text-gray-400 hover:text-primary-600 disabled:opacity-30" title="ダウンロード"><Download size={18} /></button></div>
                             <select className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 mb-2 bg-primary-50" value={tabConfig?.id || ''} onChange={(e) => handleTabSelect(e.target.value)}>{stamps.map((s, i) => (<option key={s.id} value={s.id}>{s.isExcluded ? `(除外) スタンプ ${i + 1}` : `No.${i + 1} のスタンプ`}</option>))}</select>
-                            <CanvasPreview config={tabConfig} width={TAB_WIDTH} height={TAB_HEIGHT} previewBg={previewBg} stamps={stamps} onClick={() => { setEditingSpecialType('tab'); const s = stamps.find(x => x.id === tabConfig?.id); if(s) setEditingStamp(s); }} />
+                            <CanvasPreview config={tabConfig} width={TAB_WIDTH} height={TAB_HEIGHT} previewBg={previewBg} stamps={stamps} onClick={() => { const s = stamps.find(x => x.id === tabConfig?.id); if(s && tabConfig) { setEditingSpecialType('tab'); /* 保存済みの編集内容（消しゴム編集後の画像・反転・レイヤー順）を引き継いで開く */ setEditingStamp({ ...s, dataUrl: tabConfig.customDataUrl ?? s.dataUrl, flipH: tabConfig.flipH ?? false, flipV: tabConfig.flipV ?? false, mainImageLayerOrder: tabConfig.mainImageLayerOrder ?? 100 }); } }} />
                         </div>
                     </div>
                 </div>
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-primary-100">
-                     <div className="flex items-center justify-between gap-3 mb-4">
-                        <h3 className="font-bold text-gray-700 flex items-center gap-2"><Languages className="text-primary-500" size={20} />スタンプ名・説明文</h3>
-                        <button onClick={handleGenerateMeta} disabled={isGeneratingMeta || stamps.length === 0} className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white py-1.5 px-3 rounded-lg font-bold text-xs shadow transition disabled:opacity-50">{isGeneratingMeta ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}AI生成</button>
-                     </div>
+                     <h3 className="font-bold text-gray-700 flex items-center gap-2 mb-4"><Languages className="text-primary-500" size={20} />スタンプ名・説明文</h3>
                     <div className="space-y-4">
                         <div><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">タイトル（スタンプ名）</label><CopyButton text={meta.stampNameJa} /></div><TextCounter current={meta.stampNameJa.length} min={2} max={40} /></div><input type="text" className={`w-full bg-primary-50 border rounded-md text-sm focus:ring-primary-500 focus:border-primary-500 ${meta.stampNameJa.length >= 40 ? 'border-red-300 bg-red-50' : 'border-primary-200'}`} maxLength={40} value={meta.stampNameJa} onChange={e => setMeta({...meta, stampNameJa: e.target.value})} /></div>
                         <div><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">スタンプ説明文</label><CopyButton text={meta.stampDescJa} /></div><TextCounter current={meta.stampDescJa.length} min={10} max={160} /></div><textarea className={`w-full bg-primary-50 border rounded-md text-sm focus:ring-primary-500 focus:border-primary-500 ${meta.stampDescJa.length >= 160 ? 'border-red-300 bg-red-50' : 'border-primary-200'}`} rows={3} maxLength={160} value={meta.stampDescJa} onChange={e => setMeta({...meta, stampDescJa: e.target.value})} /><div className="mt-2"><button onClick={() => setDescriptionHintOpen(!descriptionHintOpen)} className="flex items-center gap-1 text-xs text-primary-600 font-bold hover:text-primary-700">{descriptionHintOpen ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}説明文ヒント</button>{descriptionHintOpen && (<div className="mt-2 p-3 bg-gray-100 rounded-lg text-[10px] border border-gray-200 animate-fade-in"><span className="font-bold text-gray-500 mb-1 block">入力例：</span>○○のスタンプ。毎日よく使う言葉がたくさん。バレンタインに使える。お煎餅もあるよ。チョコ好きの方も煎餅好きの方もどうぞ！</div>)}</div></div>
-                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">AI生成・翻訳を押した時だけ、画像・テキストが外部（Google Gemini）へ送信されます。</p>
                         <button onClick={handleTranslation} disabled={isTranslating} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-2 rounded-lg font-bold text-sm shadow hover:shadow-lg transition disabled:opacity-50">{isTranslating ? 'AI翻訳中...' : '英語に翻訳'}</button>
                         <div className="pt-2 border-t border-dashed"><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">タイトル(En)</label><CopyButton text={meta.stampNameEn} /></div><TextCounter current={meta.stampNameEn.length} min={2} max={40} /></div><input type="text" className="w-full bg-primary-50 border-primary-200 rounded-md text-sm" maxLength={40} value={meta.stampNameEn} onChange={e => setMeta({...meta, stampNameEn: e.target.value})} /></div>
                         <div><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-2"><label className="text-xs font-bold text-gray-500">説明文(En)</label><CopyButton text={meta.stampDescEn} /></div><TextCounter current={meta.stampDescEn.length} min={10} max={160} /></div><textarea className="w-full bg-primary-50 border-primary-200 rounded-md text-sm" rows={3} maxLength={160} value={meta.stampDescEn} onChange={e => setMeta({...meta, stampDescEn: e.target.value})} /></div>
@@ -1719,7 +1705,12 @@ export default function App() {
                     <div className="flex items-center gap-2 mb-4"><input type="checkbox" id="renumber" checked={renumber} onChange={e => setRenumber(e.target.checked)} className="rounded text-primary-600" /><label htmlFor="renumber" className="text-sm text-gray-700">番号を振り直す (01.png〜)</label></div>
                     <button onClick={handleExport} className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2"><Download size={20} />ZIPをダウンロード</button>
                     <div className="pt-4 border-t border-primary-200/50 space-y-3"><a href="https://creator.line.me/ja/stickermaker/" target="_blank" rel="noopener noreferrer" className="w-full bg-white text-[#06C755] border border-[#06C755] font-bold py-3 rounded-xl flex items-center justify-center gap-2 md:hidden"><Smartphone size={18} />LINEスタンプメーカー</a><a href="https://creator.line.me/ja/" target="_blank" rel="noopener noreferrer" className="w-full bg-white text-gray-600 border border-gray-300 font-bold py-3 rounded-xl flex items-center justify-center gap-2"><ExternalLink size={18} />クリエイターズマーケット</a></div>
-                    <button type="button" onClick={() => setShowDeleteAllDialog(true)} className="w-full bg-white border border-red-200 text-red-600 hover:bg-red-50 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm"><Trash2 size={16} />データをすべて削除する</button>
+                </div>
+                <div className="bg-white p-4 rounded-2xl shadow-sm border border-red-100">
+                    <button onClick={() => setShowDeleteAllModal(true)} className="w-full flex items-center justify-center gap-2 text-red-500 border border-red-200 hover:bg-red-50 font-bold py-2.5 rounded-xl transition text-sm">
+                        <Trash2 size={16} />データをすべて削除する
+                    </button>
+                    <p className="text-[10px] text-gray-400 mt-2 text-center">この端末（ブラウザ）に保存されたプロジェクト・素材データを削除します</p>
                 </div>
             </div>
           </div>
@@ -1727,7 +1718,7 @@ export default function App() {
       </main>
       
       {editingStamp && (
-        <StampEditorModal stamp={editingStamp} isOpen={!!editingStamp} onClose={() => { setEditingStamp(null); setEditingSpecialType(null); }} onSave={(updated) => { if (editingSpecialType) { updateSpecialConfig(updated); } else { updateStamp(updated); } }} onReCrop={() => handleReCropFromEditor(editingStamp)} initialPreviewBg={previewBg} targetWidth={editingSpecialType === 'main' ? MAIN_WIDTH : (editingSpecialType === 'tab' ? TAB_WIDTH : TARGET_WIDTH)} targetHeight={editingSpecialType === 'main' ? MAIN_HEIGHT : (editingSpecialType === 'tab' ? TAB_HEIGHT : TARGET_HEIGHT)} initialScale={editingSpecialType === 'main' ? mainConfig?.scale : editingSpecialType === 'tab' ? tabConfig?.scale : undefined} initialRotation={editingSpecialType === 'main' ? mainConfig?.rotation : editingSpecialType === 'tab' ? tabConfig?.rotation : undefined} initialOffset={editingSpecialType === 'main' ? {x: mainConfig?.offsetX || 0, y: mainConfig?.offsetY || 0} : editingSpecialType === 'tab' ? {x: tabConfig?.offsetX || 0, y: tabConfig?.offsetY || 0} : undefined} initialTextObjects={editingSpecialType === 'main' ? mainConfig?.textObjects : editingSpecialType === 'tab' ? tabConfig?.textObjects : undefined} initialImageLayers={editingSpecialType === 'main' ? mainConfig?.imageLayers : editingSpecialType === 'tab' ? tabConfig?.imageLayers : undefined} initialDrawingStrokes={editingSpecialType === 'main' ? mainConfig?.drawingStrokes : editingSpecialType === 'tab' ? tabConfig?.drawingStrokes : undefined} />
+        <StampEditorModal stamp={editingStamp} isOpen={!!editingStamp} onClose={() => { setEditingStamp(null); setEditingSpecialType(null); }} onSave={(updated) => { if (editingSpecialType) { updateSpecialConfig(updated); } else { updateStamp(updated); } }} onReCrop={() => handleReCropFromEditor(editingStamp)} initialPreviewBg={previewBg} fillHoles={fillHoles} targetWidth={editingSpecialType === 'main' ? MAIN_WIDTH : (editingSpecialType === 'tab' ? TAB_WIDTH : TARGET_WIDTH)} targetHeight={editingSpecialType === 'main' ? MAIN_HEIGHT : (editingSpecialType === 'tab' ? TAB_HEIGHT : TARGET_HEIGHT)} initialScale={editingSpecialType === 'main' ? mainConfig?.scale : editingSpecialType === 'tab' ? tabConfig?.scale : undefined} initialRotation={editingSpecialType === 'main' ? mainConfig?.rotation : editingSpecialType === 'tab' ? tabConfig?.rotation : undefined} initialOffset={editingSpecialType === 'main' ? {x: mainConfig?.offsetX || 0, y: mainConfig?.offsetY || 0} : editingSpecialType === 'tab' ? {x: tabConfig?.offsetX || 0, y: tabConfig?.offsetY || 0} : undefined} initialTextObjects={editingSpecialType === 'main' ? mainConfig?.textObjects : editingSpecialType === 'tab' ? tabConfig?.textObjects : undefined} initialImageLayers={editingSpecialType === 'main' ? mainConfig?.imageLayers : editingSpecialType === 'tab' ? tabConfig?.imageLayers : undefined} initialDrawingStrokes={editingSpecialType === 'main' ? mainConfig?.drawingStrokes : editingSpecialType === 'tab' ? tabConfig?.drawingStrokes : undefined} />
       )}
 
       {showSourceSelectModal && (
@@ -1790,20 +1781,6 @@ export default function App() {
         </div>
       )}
 
-      {showDeleteAllDialog && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
-            <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><Trash2 size={32} className="text-red-500" /></div>
-            <h3 className="text-lg font-bold text-gray-800 mb-2">データをすべて削除しますか？</h3>
-            <p className="text-sm text-gray-500 mb-6">保存済みプロジェクト、素材ライブラリ、Gemini APIキーをこのブラウザから削除します。この操作は取り消せません。</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowDeleteAllDialog(false)} className="flex-1 bg-white border border-gray-300 text-gray-600 font-bold py-2.5 rounded-xl shadow-sm transition hover:bg-gray-50">キャンセル</button>
-              <button onClick={handleDeleteAllData} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl shadow transition">すべて削除</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {deleteTarget && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-xs w-full p-6 text-center">
@@ -1813,6 +1790,24 @@ export default function App() {
                 <div className="flex gap-3">
                     <button onClick={() => setDeleteTarget(null)} className="flex-1 bg-white border border-gray-300 text-gray-600 font-bold py-2.5 rounded-xl shadow-sm transition hover:bg-gray-50">キャンセル</button>
                     <button onClick={handleDeleteStamp} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl shadow transition">削除する</button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+                <div className="text-4xl mb-3">⚠️</div>
+                <h3 className="text-lg font-bold text-gray-800 mb-2">データをすべて削除しますか？</h3>
+                <p className="text-sm text-gray-500 mb-4">この端末（ブラウザ）に保存されている保存済みプロジェクトと素材ライブラリを削除します。<br/>この操作は取り消せません。</p>
+                <label className="flex items-center justify-center gap-2 text-xs text-gray-600 mb-6 cursor-pointer">
+                    <input type="checkbox" checked={deleteAllIncludeApiKey} onChange={e => setDeleteAllIncludeApiKey(e.target.checked)} className="rounded border-gray-300 text-red-500 focus:ring-red-400" />
+                    APIキー設定も削除する
+                </label>
+                <div className="flex gap-3">
+                    <button onClick={() => setShowDeleteAllModal(false)} disabled={isDeletingAll} className="flex-1 bg-white border border-gray-300 text-gray-600 font-bold py-2.5 rounded-xl shadow-sm transition hover:bg-gray-50 disabled:opacity-50">キャンセル</button>
+                    <button onClick={handleDeleteAllData} disabled={isDeletingAll} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2.5 rounded-xl shadow transition disabled:opacity-50">{isDeletingAll ? '削除中...' : '削除する'}</button>
                 </div>
             </div>
         </div>
@@ -1856,7 +1851,7 @@ export default function App() {
             <div className="space-y-4">
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-700">
                 <p className="font-bold mb-1">AI翻訳機能を使うにはGemini APIキーが必要です</p>
-                <p>APIキーは簡易暗号化してブラウザに保存され、AI機能の実行時だけGoogleへ送信されます。</p>
+                <p>APIキーはブラウザに保存され、サーバーには送信されません。</p>
               </div>
               
               <div>

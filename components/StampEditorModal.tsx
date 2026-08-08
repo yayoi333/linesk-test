@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Stamp, TextObject, ImageLayerObject, DrawingStroke, TARGET_WIDTH, TARGET_HEIGHT } from '../types';
-import { Check, X, Sliders, Layers, Trash2, Move, Type, Image as ImageIcon, PenTool, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eraser, Wand2 } from 'lucide-react';
+import { Check, X, Sliders, Layers, Trash2, Move, Type, Image as ImageIcon, PenTool, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Eraser, Wand2, CheckCircle2 } from 'lucide-react';
 import { drawTextOnCanvas } from '../lib/zipService';
 import { reprocessStampWithTolerance } from '../lib/imageProcessing';
 import { saveMaterial, loadMaterials, deleteMaterial, MaterialItem } from '../lib/storage';
@@ -41,6 +41,7 @@ interface Props {
   initialTextObjects?: TextObject[];
   initialImageLayers?: ImageLayerObject[];
   initialDrawingStrokes?: DrawingStroke[];
+  fillHoles?: boolean;
 }
 
 interface HistoryState {
@@ -71,7 +72,8 @@ export const StampEditorModal: React.FC<Props> = ({
   initialOffset,
   initialTextObjects,
   initialImageLayers,
-  initialDrawingStrokes
+  initialDrawingStrokes,
+  fillHoles = true
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -162,6 +164,8 @@ export const StampEditorModal: React.FC<Props> = ({
   const [activeImageHandle, setActiveImageHandle] = useState<'tl' | 'tr' | 'bl' | 'br' | null>(null);
 
   const [tolerance, setTolerance] = useState(stamp.currentTolerance || 50);
+  // このスタンプに適用する「囲みも透過」。個別指定があればそれを、なければ全体設定を使う。
+  const [localFillHoles, setLocalFillHoles] = useState(stamp.fillHolesOverride ?? fillHoles);
 
   const [workingDataUrl, setWorkingDataUrl] = useState(stamp.dataUrl);
   const [originalImage, setOriginalImage] = useState<HTMLImageElement | null>(null);
@@ -938,13 +942,13 @@ export const StampEditorModal: React.FC<Props> = ({
       if (toleranceTimeoutRef.current) { clearTimeout(toleranceTimeoutRef.current); }
       toleranceTimeoutRef.current = window.setTimeout(async () => {
           if (stamp.originalDataUrl) {
-              try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, newVal); setWorkingDataUrl(newDataUrl); } 
+              try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, newVal, fillHoles); setWorkingDataUrl(newDataUrl); }
               catch (err) { console.error("Failed to reprocess", err); }
           }
       }, 300);
   };
   const handleSave = () => {
-      const updatedStamp: Stamp = { ...stamp, scale, rotation, flipH, flipV, offsetX: offset.x, offsetY: offset.y, dataUrl: workingDataUrl, textObjects, imageLayers, drawingStrokes, currentTolerance: tolerance, mainImageLayerOrder };
+      const updatedStamp: Stamp = { ...stamp, scale, rotation, flipH, flipV, offsetX: offset.x, offsetY: offset.y, dataUrl: workingDataUrl, textObjects, imageLayers, drawingStrokes, currentTolerance: tolerance, mainImageLayerOrder, fillHolesOverride: localFillHoles === fillHoles ? undefined : localFillHoles };
       onSave(updatedStamp); onClose();
   };
 
@@ -1361,24 +1365,49 @@ export const StampEditorModal: React.FC<Props> = ({
              )}
 
              {mode === 'wand' && originalImage && (
-                <div className="flex items-center gap-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                    <div className="flex items-center gap-2 text-yellow-700 font-bold text-sm min-w-[80px] shrink-0">
-                        <Wand2 size={16} /> 追加透過
+                <div className="flex flex-col gap-3 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 text-yellow-700 font-bold text-sm min-w-[80px] shrink-0">
+                            <Wand2 size={16} /> 追加透過
+                        </div>
+                        <ControlSlider
+                            label="" value={tolerance} min={1} max={100} step={1}
+                            onChange={(val: number) => {
+                                setTolerance(val);
+                                if (toleranceTimeoutRef.current) { clearTimeout(toleranceTimeoutRef.current); }
+                                toleranceTimeoutRef.current = window.setTimeout(async () => {
+                                    if (stamp.originalDataUrl) {
+                                        try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, val, localFillHoles); setWorkingDataUrl(newDataUrl); }
+                                        catch (err) { console.error("Failed to reprocess", err); }
+                                    }
+                                }, 300);
+                            }}
+                            showValue={true}
+                        />
                     </div>
-                    <ControlSlider
-                        label="" value={tolerance} min={1} max={100} step={1}
-                        onChange={(val: number) => {
-                            setTolerance(val);
-                            if (toleranceTimeoutRef.current) { clearTimeout(toleranceTimeoutRef.current); }
-                            toleranceTimeoutRef.current = window.setTimeout(async () => {
-                                if (stamp.originalDataUrl) {
-                                    try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, val); setWorkingDataUrl(newDataUrl); } 
-                                    catch (err) { console.error("Failed to reprocess", err); }
-                                }
-                            }, 300);
-                        }}
-                        showValue={true}
-                    />
+                    <div className="flex items-center gap-3 border-t border-yellow-200 pt-3">
+                        <button
+                          onClick={async () => {
+                            const next = !localFillHoles;
+                            setLocalFillHoles(next);
+                            if (stamp.originalDataUrl) {
+                              try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, tolerance, next); setWorkingDataUrl(newDataUrl); }
+                              catch (err) { console.error("Failed to reprocess", err); }
+                            }
+                          }}
+                          className={`flex items-center gap-1 text-xs font-bold py-1.5 px-3 rounded-lg border transition ${
+                            localFillHoles
+                              ? 'bg-primary-50 border-primary-300 text-primary-700 hover:bg-primary-100'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                          title="「○」の中、手と顔の間など、外側とつながっていない囲まれた背景色も透過します"
+                        >
+                          <CheckCircle2 size={14} />囲みも透過{localFillHoles ? '：ON' : '：OFF'}
+                        </button>
+                        <span className="text-[10px] text-gray-500">
+                          {localFillHoles === fillHoles ? '全体設定と同じ' : 'このスタンプだけ全体設定を上書き中'}
+                        </span>
+                    </div>
                 </div>
              )}
 

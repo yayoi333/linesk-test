@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* スクロールバー：常時表示・太く・はっきり */
 .scrollbar-thick {
   scrollbar-width: auto;

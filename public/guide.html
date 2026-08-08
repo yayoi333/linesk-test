@@ -1,1166 +1,382 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>スタンプ切り出しくん｜使い方ガイド</title>
-  <style>
-    :root {
-      --green: #22c55e;
-      --green-dark: #16a34a;
-      --green-light: #dcfce7;
-      --green-mid: #86efac;
-      --gray-50: #f8fafc;
-      --gray-100: #f1f5f9;
-      --gray-200: #e2e8f0;
-      --gray-600: #475569;
-      --gray-700: #334155;
-      --gray-800: #1e293b;
-      --gray-900: #0f172a;
-      --orange: #f97316;
-      --blue: #3b82f6;
-      --yellow: #eab308;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>スタンプ切り出しくん｜クイックマニュアル（はじめての方向け）</title>
+<style>
+  :root {
+    --green: #22c55e;
+    --green-dark: #16a34a;
+    --green-light: #dcfce7;
+    --green-mid: #86efac;
+    --gray-50: #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-200: #e2e8f0;
+    --gray-400: #94a3b8;
+    --gray-600: #475569;
+    --gray-700: #334155;
+    --gray-800: #1e293b;
+    --gray-900: #0f172a;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --yellow: #eab308;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    line-height: 1.8;
+  }
+  .site-header {
+    background: linear-gradient(135deg, #16a34a 0%, #22c55e 60%, #4ade80 100%);
+    color: white;
+    padding: 44px 24px 36px;
+    text-align: center;
+  }
+  .site-header .logo-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.4);
+    border-radius: 50px;
+    padding: 6px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+  .site-header h1 {
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+  .site-header p { font-size: 15px; opacity: 0.95; max-width: 480px; margin: 0 auto; }
+  .site-header .switch-link {
+    display: inline-block;
+    margin-top: 18px;
+    font-size: 13px;
+    color: white;
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 20px;
+    padding: 7px 16px;
+    text-decoration: none;
+  }
+  .site-header .switch-link:hover { background: rgba(255,255,255,0.3); }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+  .container { max-width: 760px; margin: 0 auto; padding: 0 20px; }
 
-    body {
-      font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
-      background: var(--gray-50);
-      color: var(--gray-800);
-      line-height: 1.7;
-    }
+  .lead {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin: 28px auto;
+    max-width: 760px;
+  }
+  .lead h2 { font-size: 16px; font-weight: 800; color: var(--green-dark); margin-bottom: 10px; }
+  .lead p { font-size: 14px; color: var(--gray-700); margin-bottom: 8px; }
+  .lead ul { margin: 10px 0 0 0; padding-left: 20px; }
+  .lead li { font-size: 14px; color: var(--gray-700); margin-bottom: 4px; }
 
-    /* ===== HEADER ===== */
-    .site-header {
-      background: linear-gradient(135deg, #16a34a 0%, #22c55e 60%, #4ade80 100%);
-      color: white;
-      padding: 48px 24px 40px;
-      text-align: center;
-    }
-    .site-header .logo-badge {
-      display: inline-block;
-      background: rgba(255,255,255,0.2);
-      border: 2px solid rgba(255,255,255,0.4);
-      border-radius: 50px;
-      padding: 6px 20px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      margin-bottom: 16px;
-      text-transform: uppercase;
-    }
-    .site-header h1 {
-      font-size: clamp(28px, 5vw, 42px);
-      font-weight: 900;
-      letter-spacing: -0.02em;
-      margin-bottom: 12px;
-    }
-    .site-header p {
-      font-size: 16px;
-      opacity: 0.9;
-      max-width: 500px;
-      margin: 0 auto;
-    }
+  .step {
+    background: white;
+    border-radius: 20px;
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+    margin: 24px 20px;
+  }
+  @media(min-width: 800px) { .step { margin-left: auto; margin-right: auto; max-width: 760px; } }
 
-    /* ===== LAYOUT ===== */
-    .container {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 0 20px;
-    }
+  .step-head {
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .step-num {
+    width: 42px;
+    height: 42px;
+    background: var(--green);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .step-head h2 { font-size: 19px; font-weight: 800; color: var(--gray-900); }
+  .step-head p { font-size: 13px; color: var(--gray-600); margin-top: 2px; }
+  .step-body { padding: 22px 28px 26px; }
+  .step-body > p { font-size: 14px; color: var(--gray-700); margin-bottom: 12px; }
+  .step-body strong { color: var(--gray-900); }
 
-    /* ===== TOC ===== */
-    .toc {
-      background: white;
-      border: 1px solid var(--gray-200);
-      border-radius: 16px;
-      padding: 28px 32px;
-      margin: 32px auto;
-      max-width: 860px;
-      margin-left: 20px;
-      margin-right: 20px;
-    }
-    @media(min-width: 900px) {
-      .toc { margin-left: auto; margin-right: auto; }
-    }
-    .toc h2 {
-      font-size: 14px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--green-dark);
-      margin-bottom: 16px;
-    }
-    .toc-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 8px;
-    }
-    .toc a {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      color: var(--gray-700);
-      text-decoration: none;
-      font-size: 14px;
-      transition: background 0.15s;
-    }
-    .toc a:hover { background: var(--green-light); color: var(--green-dark); }
-    .toc a .num {
-      width: 22px;
-      height: 22px;
-      background: var(--green-light);
-      color: var(--green-dark);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-    .toc a .num.highlight {
-      background: #fef3c7;
-      color: #92400e;
-    }
+  figure.shot { margin: 14px 0 4px; }
+  figure.shot img {
+    width: 100%;
+    display: block;
+    border-radius: 12px;
+    border: 1px solid var(--gray-200);
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+  }
+  figure.shot figcaption {
+    font-size: 12px;
+    color: var(--gray-400);
+    margin-top: 8px;
+    text-align: center;
+  }
 
-    /* ===== SECTIONS ===== */
-    .section {
-      background: white;
-      border-radius: 20px;
-      border: 1px solid var(--gray-200);
-      overflow: hidden;
-      margin: 24px 20px;
-    }
-    @media(min-width: 900px) {
-      .section { margin-left: auto; margin-right: auto; max-width: 860px; }
-    }
+  .tip-box {
+    background: var(--green-light);
+    border-left: 4px solid var(--green);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 16px;
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--green-dark);
+  }
+  .tip-box strong { font-weight: 700; }
 
-    /* クイックアクセスは目立つスタイル */
-    .section.quick-section {
-      border: 2px solid var(--green);
-      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.12);
-    }
-    .section.quick-section .section-header {
-      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-    }
+  .note-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+  }
+  .note-box .ic { font-size: 18px; flex-shrink: 0; }
+  .note-box p { font-size: 13px; color: #92400e; line-height: 1.6; }
+  .note-box strong { font-weight: 700; }
 
-    .section-header {
-      padding: 24px 32px 20px;
-      border-bottom: 1px solid var(--gray-100);
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .section-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      flex-shrink: 0;
-    }
-    .icon-green { background: var(--green-light); }
-    .icon-orange { background: #fff7ed; }
-    .icon-blue { background: #eff6ff; }
-    .icon-purple { background: #faf5ff; }
-    .icon-yellow { background: #fefce8; }
-    .icon-pink { background: #fdf2f8; }
-    .icon-line { background: #e8f5e9; }
+  .line-links { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+  .line-links a {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 14px 18px;
+    text-decoration: none;
+    color: var(--gray-800);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .line-links a small { display:block; font-weight: 400; font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+  .line-links a:hover { border-color: var(--green); background: var(--green-light); }
+  .line-links a .arrow { color: var(--green-dark); font-weight: 900; }
 
-    .section-header-text h2 {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--gray-900);
-      line-height: 1.3;
-    }
-    .section-header-text p {
-      font-size: 13px;
-      color: var(--gray-600);
-      margin-top: 2px;
-    }
+  .trouble {
+    background: white;
+    border-radius: 20px;
+    border: 2px solid var(--yellow);
+    overflow: hidden;
+    margin: 32px 20px;
+  }
+  @media(min-width: 800px) { .trouble { margin-left: auto; margin-right: auto; max-width: 760px; } }
+  .trouble .step-head { background: #fefce8; }
+  .trouble dl { padding: 4px 0; }
+  .trouble dt { font-weight: 800; font-size: 14px; color: var(--gray-900); margin-top: 14px; }
+  .trouble dt:first-child { margin-top: 0; }
+  .trouble dd { font-size: 13px; color: var(--gray-600); margin-top: 4px; line-height: 1.7; }
+  .trouble dd a { color: var(--green-dark); font-weight: 700; }
 
-    .section-body {
-      padding: 28px 32px;
-    }
+  .next-guide {
+    text-align: center;
+    margin: 40px 20px 0;
+  }
+  .next-guide a {
+    display: inline-block;
+    background: var(--green);
+    color: white;
+    font-weight: 800;
+    font-size: 15px;
+    padding: 14px 32px;
+    border-radius: 30px;
+    text-decoration: none;
+    box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+  }
+  .next-guide a:hover { background: var(--green-dark); }
+  .next-guide p { font-size: 12px; color: var(--gray-600); margin-top: 10px; }
 
-    /* ===== QUICK ACCESS ===== */
-    .quick-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-    .quick-step {
-      display: flex;
-      gap: 20px;
-      position: relative;
-    }
-    .quick-step:not(:last-child)::before {
-      content: '';
-      position: absolute;
-      left: 19px;
-      top: 44px;
-      width: 2px;
-      bottom: -8px;
-      background: var(--green-mid);
-    }
-    .quick-step-num {
-      width: 40px;
-      height: 40px;
-      background: var(--green);
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      font-size: 16px;
-      flex-shrink: 0;
-      z-index: 1;
-    }
-    .quick-step-content {
-      flex: 1;
-      padding-bottom: 28px;
-    }
-    .quick-step-content h3 {
-      font-size: 17px;
-      font-weight: 800;
-      color: var(--gray-900);
-      margin-bottom: 6px;
-    }
-    .quick-step-content p {
-      font-size: 14px;
-      color: var(--gray-600);
-      line-height: 1.6;
-    }
-    .tip-box {
-      background: var(--green-light);
-      border-left: 4px solid var(--green);
-      border-radius: 0 8px 8px 0;
-      padding: 10px 14px;
-      margin-top: 10px;
-      font-size: 13px;
-      color: var(--green-dark);
-    }
-    .tip-box strong { font-weight: 700; }
-
-    /* ===== FEATURE CARDS ===== */
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 16px;
-    }
-    .feature-card {
-      background: var(--gray-50);
-      border: 1px solid var(--gray-200);
-      border-radius: 14px;
-      padding: 18px 20px;
-    }
-    .feature-card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-    }
-    .feature-card-icon {
-      font-size: 22px;
-    }
-    .feature-card h3 {
-      font-size: 15px;
-      font-weight: 800;
-      color: var(--gray-900);
-    }
-    .feature-card p {
-      font-size: 13px;
-      color: var(--gray-600);
-      line-height: 1.6;
-    }
-    .tag-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 10px;
-    }
-    .tag {
-      background: white;
-      border: 1px solid var(--gray-200);
-      border-radius: 20px;
-      padding: 2px 10px;
-      font-size: 11px;
-      color: var(--gray-600);
-      font-weight: 600;
-    }
-    .tag.green { background: var(--green-light); border-color: var(--green-mid); color: var(--green-dark); }
-
-    /* ===== STEP LIST ===== */
-    .step-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .step-list li {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-    }
-    .step-badge {
-      width: 28px;
-      height: 28px;
-      background: var(--green);
-      color: white;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-      font-weight: 700;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-    .step-badge.orange { background: var(--orange); }
-    .step-badge.blue { background: var(--blue); }
-    .step-badge.line-color { background: #06c755; }
-
-    .step-text h4 {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--gray-900);
-      margin-bottom: 3px;
-    }
-    .step-text p {
-      font-size: 13px;
-      color: var(--gray-600);
-      line-height: 1.6;
-    }
-
-    /* ===== NOTE BOX ===== */
-    .note-box {
-      background: #fffbeb;
-      border: 1px solid #fde68a;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-    }
-    .note-box .note-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
-    .note-box p { font-size: 13px; color: #92400e; line-height: 1.6; }
-    .note-box strong { font-weight: 700; }
-
-    .info-box {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-    }
-    .info-box .note-icon { font-size: 20px; flex-shrink: 0; }
-    .info-box p { font-size: 13px; color: #1e40af; line-height: 1.6; }
-    .info-box strong { font-weight: 700; }
-
-    .danger-box {
-      background: #fff1f2;
-      border: 1px solid #fecdd3;
-      border-radius: 12px;
-      padding: 16px 20px;
-      margin-top: 16px;
-      display: flex;
-      gap: 10px;
-    }
-    .danger-box .note-icon { font-size: 20px; flex-shrink: 0; }
-    .danger-box p { font-size: 13px; color: #9f1239; line-height: 1.6; }
-    .danger-box strong { font-weight: 700; }
-
-    /* ===== DIVIDER ===== */
-    .divider {
-      border: none;
-      border-top: 1px solid var(--gray-200);
-      margin: 24px 0;
-    }
-
-    .subsection-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: var(--gray-900);
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .subsection-title::before {
-      content: '';
-      width: 4px;
-      height: 18px;
-      background: var(--green);
-      border-radius: 2px;
-      display: inline-block;
-    }
-
-    /* ===== LINE BUTTON ===== */
-    .line-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: #06c755;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-weight: 700;
-      font-size: 14px;
-      text-decoration: none;
-      margin-top: 12px;
-    }
-
-    /* ===== FOOTER ===== */
-    footer {
-      text-align: center;
-      padding: 32px 20px;
-      font-size: 13px;
-      color: var(--gray-600);
-    }
-
-    /* ===== SPEC TABLE ===== */
-    .spec-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-    .spec-table th, .spec-table td {
-      padding: 10px 14px;
-      border: 1px solid var(--gray-200);
-      text-align: left;
-    }
-    .spec-table th {
-      background: var(--green-light);
-      font-weight: 700;
-      color: var(--green-dark);
-      white-space: nowrap;
-    }
-    .spec-table tr:nth-child(even) td { background: var(--gray-50); }
-
-    .method-tabs {
-      display: flex;
-      gap: 0;
-      border: 1px solid var(--gray-200);
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 20px;
-    }
-    .method-tab {
-      flex: 1;
-      padding: 14px;
-      text-align: center;
-      font-weight: 700;
-      font-size: 14px;
-    }
-    .method-tab.green-tab {
-      background: var(--green);
-      color: white;
-    }
-    .method-tab.gray-tab {
-      background: var(--gray-100);
-      color: var(--gray-600);
-    }
-  </style>
+  footer { text-align: center; padding: 32px 20px 40px; font-size: 13px; color: var(--gray-600); }
+</style>
 </head>
 <body>
 
-<!-- HEADER -->
 <header class="site-header">
-  <div class="logo-badge">使い方ガイド</div>
+  <div class="logo-badge">クイックマニュアル</div>
   <h1>📸 スタンプ切り出しくん</h1>
-  <p>画像からLINEスタンプを切り出して、ZIP形式で申請準備まで一括完結</p>
+  <p>はじめての方向け・最短ルートガイド。この7ステップだけ読めば、最初のスタンプセットが作れます。</p>
+  <a class="switch-link" href="manual-full.html">→ もっと詳しく知りたい方は「全機能ガイド」へ</a>
 </header>
 
-<!-- TOC -->
-<nav class="toc container">
-  <h2>📋 目次</h2>
-  <div class="toc-grid">
-    <a href="#gemini"><span class="num highlight">🔑</span> Gemini API設定（最初に！）</a>
-    <a href="#quick"><span class="num">⚡</span> クイックガイド</a>
-    <a href="#upload"><span class="num">①</span> 画像アップロード</a>
-    <a href="#cutout"><span class="num">②</span> スタンプ画像追加・再切り出し</a>
-    <a href="#edit"><span class="num">③</span> スタンプ編集</a>
-    <a href="#bulk"><span class="num">④</span> 一括操作</a>
-    <a href="#meta"><span class="num">⑤</span> 名前・説明文</a>
-    <a href="#export"><span class="num">⑥</span> ZIPダウンロード</a>
-    <a href="#creators"><span class="num">⑦</span> クリエイターズマーケット登録</a>
-    <a href="#maker"><span class="num">⑧</span> LINEスタンプメーカー登録</a>
-  </div>
-</nav>
+<div class="lead">
+  <h2>🎨 はじめに：用意するもの</h2>
+  <p>スタンプにしたいイラスト・写真などの<strong>画像ファイル（PNG・JPEG）</strong>をご自身で用意してください。1枚の画像に複数のキャラクター・ポーズが並んでいてもOKです（自動でひとつずつ切り出します）。</p>
+  <ul>
+    <li>画像は最大50枚まで一度にアップロードできます</li>
+    <li>作業内容はブラウザ内に自動保存されるので、途中で閉じても続きから再開できます</li>
+  </ul>
+</div>
 
-
-<!-- Gemini API設定（最初に） -->
-<section class="section" id="gemini">
-  <div class="section-header">
-    <div class="section-icon icon-purple">🤖</div>
-    <div class="section-header-text">
-      <h2>Gemini API設定（最初に設定しましょう）</h2>
-      <p>AI翻訳機能を使うための設定</p>
+<!-- STEP 1 -->
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">1</div>
+    <div>
+      <h2>画像をアップロードする</h2>
+      <p>トップ画面で画像を選ぶだけ</p>
     </div>
   </div>
-  <div class="section-body">
-
-    <p style="font-size:14px; color: var(--gray-600); margin-bottom: 20px;">
-      「英語に翻訳」のAI機能を使うには、<strong>Gemini APIキー</strong>の設定が必要です。APIキーはブラウザ内にのみ保存され、外部サーバーには一切送信されません。
-    </p>
-
-    <ul class="step-list">
-      <li>
-        <div class="step-badge">1</div>
-        <div class="step-text">
-          <h4>画面右上「Gemini APIキー設定」をクリック</h4>
-          <p>ヘッダー右上のボタンを押すと設定ダイアログが開きます。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge">2</div>
-        <div class="step-text">
-          <h4>Google AI Studio でAPIキーを取得</h4>
-          <p><strong>aistudio.google.com</strong> にアクセスし、「APIキーを作成」をクリックします。Googleアカウントでログインが必要です。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge">3</div>
-        <div class="step-text">
-          <h4>APIキーを貼り付けて「保存する」</h4>
-          <p>コピーしたキーを入力欄に貼り付けて「保存する」を押します。「API設定済」の表示に変わればOKです。</p>
-        </div>
-      </li>
-    </ul>
-
-    <div class="info-box">
-      <span class="note-icon">💡</span>
-      <p><strong>Gemini APIは無料枠があります。</strong>翻訳程度の用途であれば、無料の範囲内で十分利用できます（2026年3月現在）。</p>
-    </div>
-
-    <div class="danger-box">
-      <span class="note-icon">🔒</span>
-      <p><strong>APIキーは絶対に他人やAIに教えないでください。</strong>APIキーが漏れると、第三者に不正利用される恐れがあります。チャットや画面共有中に入力・表示しないようご注意ください。</p>
-    </div>
-
+  <div class="step-body">
+    <p>サイトを開くと出てくる画面の点線の枠に、用意した画像を<strong>ドラッグ＆ドロップ</strong>するか、枠をクリックして選択します。</p>
+    <figure class="shot">
+      <img src="manual-images/01-upload-empty.png" alt="画像アップロード画面。点線の枠に「画像をここにドロップ」と表示されている" />
+      <figcaption>最初に表示されるアップロード画面</figcaption>
+    </figure>
+    <p>画像を選ぶと、下にサムネイルと「<strong>切り出す</strong>」ボタンが表示されます。</p>
+    <figure class="shot">
+      <img src="manual-images/02-upload-ready.png" alt="画像を1枚アップロードした後の画面。「切り出す」ボタンが緑色で表示されている" />
+      <figcaption>アップロード後に表示される「切り出す」ボタン</figcaption>
+    </figure>
   </div>
 </section>
 
-
-<!-- クイックアクセス（まず見るところ） -->
-<section class="section quick-section" id="quick">
-  <div class="section-header">
-    <div class="section-icon icon-green">⚡</div>
-    <div class="section-header-text">
-      <h2>基本これだけ！クイックガイド</h2>
-      <p>最短でスタンプを作るための4ステップ</p>
+<!-- STEP 2 -->
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">2</div>
+    <div>
+      <h2>「切り出す」を押す</h2>
+      <p>自動でスタンプごとに分けてくれます</p>
     </div>
   </div>
-  <div class="section-body">
-    <div class="quick-steps">
-
-      <div class="quick-step">
-        <div class="quick-step-num">1</div>
-        <div class="quick-step-content">
-          <h3>📷 画像をアップロードして切り出す</h3>
-          <p>スタンプにしたい画像をドラッグ&amp;ドロップするか、クリックして選択します。<br>アップロード後、「<strong>切り出す</strong>」ボタンを押すとAIが自動でキャラクターを検出し、スタンプを切り出します。</p>
-          <div class="tip-box">💡 <strong>AI生成画像でグリッド線がある場合</strong>は「グリッド線を除去する」を先に実行すると綺麗に切り出せます。</div>
-        </div>
-      </div>
-
-      <div class="quick-step">
-        <div class="quick-step-num">2</div>
-        <div class="quick-step-content">
-          <h3>🔍 透過の抜け漏れがないか確認</h3>
-          <p>背景透過の抜け漏れがないか確認します。<strong>背景色を濃い色に変更する</strong>と、抜け漏れが見つけやすくなります。<br>抜け漏れがあったら、個別の編集画面で「<strong>追加透過</strong>（魔法のペンマーク）」を選び、抜きたいところをクリックします。</p>
-          <div class="tip-box">💡 切り出し直後に透過が全体的に抜けすぎ・残りすぎている場合は、<strong>一括透過</strong>で調整しましょう。ただし<strong>個別編集の後に一括透過を使うと個別編集がリセット</strong>されます。個別編集の前に一括透過を済ませておくのがコツです。</div>
-        </div>
-      </div>
-
-      <div class="quick-step">
-        <div class="quick-step-num">3</div>
-        <div class="quick-step-content">
-          <h3>📝 スタンプ名と説明文を入力する</h3>
-          <p>画面右側の「<strong>スタンプ名・説明文</strong>」エリアで、日本語のタイトルと説明文を入力します。</p>
-        </div>
-      </div>
-
-      <div class="quick-step">
-        <div class="quick-step-num">4</div>
-        <div class="quick-step-content">
-          <h3>📦 ZIPで保存して申請へ</h3>
-          <p>「<strong>ZIPをダウンロード</strong>」ボタンでスタンプ画像一式がまとめてダウンロードできます。<br>その後、「<strong>クリエイターズマーケット</strong>」ボタンから申請ページへ移動できます。</p>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-
-<!-- ① 画像アップロード -->
-<section class="section" id="upload">
-  <div class="section-header">
-    <div class="section-icon icon-blue">📂</div>
-    <div class="section-header-text">
-      <h2>① 画像アップロード</h2>
-      <p>スタンプ素材となる画像を読み込む方法</p>
-    </div>
-  </div>
-  <div class="section-body">
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🖼️</span>
-          <h3>新規アップロード</h3>
-        </div>
-        <p>画像エリアにドラッグ&amp;ドロップするか、クリックしてファイル選択。PNG・JPEG対応。<strong>最大5枚まで</strong>同時にアップロード可能です。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">📦</span>
-          <h3>ZIPから復元</h3>
-        </div>
-        <p>以前ダウンロードしたZIPファイルを選択すると、前回の編集状態から再開できます。<br><br>ただし<strong>元のスタンプ画像（4×4などの生成直後の画像）は保存されません</strong>。そのため復元後に「再切り出し」をクリックしても元画像は表示されません。再切り出ししたい場合は、もう一度画像をアップロードしてください。<br><br>また、復元後すぐに「画像のアップロード」画面に戻る場合があります。この場合は「<strong>続きから再開</strong>」を選ぶと、ZIPから復元された状態になっています。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">💾</span>
-          <h3>自動保存</h3>
-        </div>
-        <p>編集画面は随時自動保存されています。続きから作業をする場合は「<strong>続きから再開する</strong>」を選んでください。PCやスマホをシャットダウンしても続きから再開できます。<br><br>ただし稀に復帰できない場合もありますので、<strong>作業途中でZIPをダウンロードしておくと安心</strong>です。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🔲</span>
-          <h3>グリッド線除去</h3>
-        </div>
-        <p>AI生成画像に格子状のグリッド線が入っている場合、「<strong>グリッド線を除去する</strong>」で自動除去してから切り出すと綺麗に仕上がります。</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-
-<!-- ② スタンプ画像追加・再切り出し -->
-<section class="section" id="cutout">
-  <div class="section-header">
-    <div class="section-icon icon-green">✂️</div>
-    <div class="section-header-text">
-      <h2>② スタンプ画像追加・再切り出し</h2>
-      <p>切り出し範囲を変更したいときや、追加画像を入れたい場合</p>
-    </div>
-  </div>
-  <div class="section-body">
-
-    <div class="subsection-title">各スタンプ上の切り出しマーク</div>
-    <ul class="step-list" style="margin-bottom: 24px;">
-      <li>
-        <div class="step-badge">1</div>
-        <div class="step-text">
-          <h4>ドラッグで範囲を選択</h4>
-          <p>元画像上でスタンプにしたい範囲をドラッグして選択します。「この範囲で作成」を押すと1つのスタンプとして追加されます。</p>
-        </div>
-      </li>
-    </ul>
-
-    <div class="subsection-title">画像追加</div>
-    <ul class="step-list" style="margin-bottom: 24px;">
-      <li>
-        <div class="step-badge">1</div>
-        <div class="step-text">
-          <h4>追加する画像を選択しアップロード</h4>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge">2</div>
-        <div class="step-text">
-          <h4>「自動で切り出す」か「手動で切り出す」を選択</h4>
-        </div>
-      </li>
-    </ul>
-
+  <div class="step-body">
+    <p>「切り出す」ボタンを押すと数秒で解析が終わり、画像の中のキャラクター・パーツが1つずつ自動でスタンプとして切り出されます。背景も自動で透明になります。</p>
+    <figure class="shot">
+      <img src="manual-images/03-edit-overview.png" alt="切り出し完了後の編集画面。8個のスタンプが格子状に並び、右側に名前・説明文・書き出しの入力欄がある" />
+      <figcaption>切り出し完了後のメイン編集画面（この画面がメイン作業場所です）</figcaption>
+    </figure>
+    <div class="tip-box">💡 <strong>LINEスタンプの申請には8・16・24・32・40個のいずれかの個数が必要</strong>です。画面上部に現在の個数と「次は◯個を目指しましょう」という案内が出るので、それに合わせて画像を追加・削除しましょう。</div>
     <div class="note-box">
-      <span class="note-icon">⚠️</span>
-      <p>切り出し後も各スタンプで「<strong>再切り出し</strong>」ボタンが使えます。切り出し位置を直したいときはスタンプ一覧の「再切り出し」から再実行できます。</p>
-    </div>
-
-    <div class="info-box">
-      <span class="note-icon">📊</span>
-      <p><strong>申請可能個数を確認：</strong>LINE申請は <strong>8・16・24・32・40個</strong> のいずれかである必要があります。現在の個数が表示され、目標個数へのガイドも表示されます。</p>
-    </div>
-
-  </div>
-</section>
-
-
-<!-- ③ スタンプ編集 -->
-<section class="section" id="edit">
-  <div class="section-header">
-    <div class="section-icon icon-orange">🎨</div>
-    <div class="section-header-text">
-      <h2>③ スタンプ編集機能</h2>
-      <p>各スタンプに使える編集ツール一覧</p>
-    </div>
-  </div>
-  <div class="section-body">
-
-    <div class="feature-grid">
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🪄</span>
-          <h3>追加透過</h3>
-        </div>
-        <p>指定した背景色を透明にします。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🔧</span>
-          <h3>まとめる強さ</h3>
-        </div>
-        <p>スタンプ画像と言葉が離れて切り出されたときや、逆にいくつかまとまって1つになってしまったときに、くっつけたり離したりする強さを調整する機能です。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🧽</span>
-          <h3>消しゴム</h3>
-        </div>
-        <p>消去したいところを消し(透明)にします。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🖊️</span>
-          <h3>復元ペン</h3>
-        </div>
-        <p>消しすぎたところ、透過しすぎた所を戻せるペンです。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🔤</span>
-          <h3>文字入れ</h3>
-        </div>
-        <p>スタンプ上にテキストを追加します。フォント・サイズ・色・縁取り・回転・カーブなど豊富な設定が可能です。最大3つまで追加できます。</p>
-        <div class="tag-list">
-          <span class="tag">丸ゴシック</span>
-          <span class="tag">ゴシック</span>
-          <span class="tag">明朝</span>
-          <span class="tag">縦書き/横書き</span>
-          <span class="tag">縁取り</span>
-          <span class="tag">カーブ</span>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🖼️</span>
-          <h3>画像レイヤー</h3>
-        </div>
-        <p>別の画像をスタンプに重ねられます。サイズ・回転・透明度・反転（左右/上下）の調整が可能。最大5レイヤーまで追加できます。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">✏️</span>
-          <h3>手書き</h3>
-        </div>
-        <p>指やマウスでスタンプに直接描き込めます。色・太さ・透明度・縁取り色を設定できます。「画像の上/下に描く」の切り替えも可能。</p>
-        <div class="tag-list">
-          <span class="tag">色・太さ</span>
-          <span class="tag">縁取り</span>
-          <span class="tag">1つ消す</span>
-          <span class="tag">全消し</span>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🎭</span>
-          <h3>背景色</h3>
-        </div>
-        <p>スタンプのキャンバス背景色を変更して確認できます。透明・白・マゼンタ・青・黒・緑・オレンジから選択。プレビュー用なので、実際のスタンプには反映されません。</p>
-        <div class="tag-list">
-          <span class="tag">プレビュー確認用</span>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">📐</span>
-          <h3>画像移動・中央に戻す</h3>
-        </div>
-        <p>スタンプ画像の位置を調整します。ズレてしまった場合は「<strong>中央に戻す</strong>」で中央揃えに戻せます。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">📚</span>
-          <h3>レイヤー順</h3>
-        </div>
-        <p>テキスト・画像レイヤー・手書きの前後関係を管理します。「1つ前面へ」「1つ背面へ」で順序を調整できます。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🗂️</span>
-          <h3>素材ライブラリ</h3>
-        </div>
-        <p>よく使う画像パーツを「素材として保存」して使い回せます。複数スタンプに同じ装飾を付けるときに便利です。</p>
-        <div class="tag-list">
-          <span class="tag">保存・読み込み</span>
-          <span class="tag">削除</span>
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-</section>
-
-
-<!-- ④ 一括操作 -->
-<section class="section" id="bulk">
-  <div class="section-header">
-    <div class="section-icon icon-purple">⚡</div>
-    <div class="section-header-text">
-      <h2>④ 一括操作</h2>
-      <p>全スタンプにまとめて処理を適用</p>
-    </div>
-  </div>
-  <div class="section-body">
-    <div class="feature-grid">
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🎯</span>
-          <h3>まとめる強さ</h3>
-        </div>
-        <p>スタンプ画像と言葉が離れて切り出されたときや、逆にいくつかまとまって1つになってしまったときに、くっつけたり離したりする強さを全スタンプにまとめて適用します。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🌫️</span>
-          <h3>一括透過</h3>
-        </div>
-        <p>全スタンプの背景色をまとめて透過処理します。個別編集の前に済ませておくのがコツです。個別編集後に実行すると個別編集がリセットされます。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🔤</span>
-          <h3>テキスト一括追加</h3>
-        </div>
-        <p>複数のテキストを一括でスタンプに割り当てられます。プリセット（<strong>日常・感情・返事</strong>）から定型文を呼び出すこともできます。空行はスキップされ、有効なスタンプ数に合わせて順番に割り当てられます。</p>
-        <div class="tag-list">
-          <span class="tag green">日常プリセット</span>
-          <span class="tag green">感情プリセット</span>
-          <span class="tag green">返事プリセット</span>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🗑️</span>
-          <h3>テキスト一括削除</h3>
-        </div>
-        <p>全スタンプに追加されているテキストをまとめて削除します。文字入れをやり直したいときに使います。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">📏</span>
-          <h3>サイズ揃え</h3>
-        </div>
-        <p>基準にするスタンプを選ぶと、全スタンプの画像サイズをそろえられます。統一感のあるスタンプセットを作るときに便利です。</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">🎯</span>
-          <h3>中央揃え（一括）</h3>
-        </div>
-        <p>全スタンプの画像位置をキャンバス中央にまとめてリセットします。</p>
-      </div>
-
+      <span class="ic">⚠️</span>
+      <p>AI生成画像で格子状の<strong>グリッド線</strong>が入っている場合は、アップロード直後に出る「グリッド線を除去する」ボタンを先に押すと、より綺麗に切り出せます。</p>
     </div>
   </div>
 </section>
 
-
-<!-- スタンプ管理・個別設定（別枠） -->
-<section class="section" id="stamp-manage">
-  <div class="section-header">
-    <div class="section-icon icon-yellow">🗂️</div>
-    <div class="section-header-text">
-      <h2>スタンプ管理・個別設定</h2>
-      <p>並べ替えや除外など、スタンプ単位の管理操作</p>
+<!-- STEP 3 -->
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">3</div>
+    <div>
+      <h2>透明になっているか確認する</h2>
+      <p>背景の抜け漏れをチェック</p>
     </div>
   </div>
-  <div class="section-body">
-    <div class="feature-grid">
+  <div class="step-body">
+    <p>切り出したスタンプの背景がきちんと透明（チェック柄の表示）になっているか確認しましょう。画面左上の「<strong>背景色</strong>」を濃い色に変えると、透け残りが見つけやすくなります。</p>
+    <p>直したいスタンプがあれば、そのスタンプをクリックして編集画面を開き、下のツールバーから<strong>「追加透過」</strong>（魔法の杖アイコン）を選んで、消したい部分をクリックしてください。</p>
+    <figure class="shot">
+      <img src="manual-images/05-modal-wand.png" alt="スタンプ編集モーダルで「追加透過」ツールが選択されている状態" />
+      <figcaption>個別編集画面の「追加透過」ツール</figcaption>
+    </figure>
+    <div class="tip-box">💡 全体的に透過が甘い・強すぎる場合は、編集画面に入らず一覧画面上部の「<strong>一括透過</strong>」スライダーで全スタンプまとめて調整できます。ただし<strong>個別編集の後に一括透過を使うと個別編集がリセット</strong>されるので、先に一括透過→そのあと個別調整の順で行うのがコツです。</div>
+  </div>
+</section>
 
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">↕️</span>
-          <h3>並べ替え（ドラッグ）</h3>
-        </div>
-        <p>スタンプ一覧でドラッグ&amp;ドロップして順番を自由に変更できます。申請時の順番にも影響します。</p>
-      </div>
+<!-- STEP 4 -->
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">4</div>
+    <div>
+      <h2>スタンプ名と説明文を入力する</h2>
+      <p>申請に必須の項目です</p>
+    </div>
+  </div>
+  <div class="step-body">
+    <p>右側の「スタンプ名・説明文」欄に、日本語でタイトル（2文字以上）と説明文（10文字以上）を入力します。</p>
+    <figure class="shot">
+      <img src="manual-images/15-meta-filled.png" alt="スタンプ名・説明文の入力欄にタイトルと説明文が入力されている状態" />
+      <figcaption>名前・説明文の入力欄</figcaption>
+    </figure>
+    <div class="tip-box">💡 LINEクリエイターズマーケットへの申請には<strong>英語のタイトル・説明文も必要</strong>です。「英語に翻訳」ボタンを押せばAIが自動で翻訳してくれますが、初回は右上の「API設定」からご自身のGemini APIキー（無料）を登録する必要があります。詳しい手順は全機能ガイドをご覧ください。</div>
+  </div>
+</section>
 
-      <div class="feature-card">
-        <div class="feature-card-header">
-          <span class="feature-card-icon">⭕</span>
-          <h3>除外・代表画像設定</h3>
-        </div>
-        <p>一時的にスタンプセットから除外したいスタンプは「<strong>除外</strong>」で無効化できます。「<strong>代表画像設定</strong>」でメイン画像・タブ画像に使うスタンプを指定できます。</p>
-      </div>
+<!-- STEP 5 -->
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">5</div>
+    <div>
+      <h2>ZIPをダウンロードする</h2>
+      <p>申請用の画像一式をまとめて保存</p>
+    </div>
+  </div>
+  <div class="step-body">
+    <p>右側の「書き出し」欄にある<strong>「ZIPをダウンロード」</strong>ボタンを押すと、スタンプ画像・メイン画像・タブ画像が入ったZIPファイルがダウンロードされます。</p>
+    <div class="tip-box">💡 このZIPファイルは、次回サイトを開いたときの「保存したZIPから復元する」でも使えます。作業の節目でダウンロードしておくと、万が一の際も安心です。</div>
+  </div>
+</section>
 
+<!-- STEP 6 -->
+<section class="step">
+  <div class="step-head">
+    <div class="step-num">6</div>
+    <div>
+      <h2>LINEに申請する</h2>
+      <p>公式サイト・アプリから申請します</p>
+    </div>
+  </div>
+  <div class="step-body">
+    <p>ダウンロードしたZIPの中身を使って、LINEの公式ルートから申請します。どちらも無料で使えます。</p>
+    <div class="line-links">
+      <a href="https://creator.line.me/ja/" target="_blank" rel="noopener noreferrer">
+        <span>🏪 LINEクリエイターズマーケット<br><small>PCのブラウザから申請。有料販売もできる本格ルート</small></span>
+        <span class="arrow">→</span>
+      </a>
+      <a href="https://creator.line.me/ja/stickermaker/" target="_blank" rel="noopener noreferrer">
+        <span>📱 LINEスタンプメーカー<br><small>スマホアプリで手軽に申請したい方向け</small></span>
+        <span class="arrow">→</span>
+      </a>
     </div>
   </div>
 </section>
 
-
-<!-- ⑤ スタンプ名・説明文 -->
-<section class="section" id="meta">
-  <div class="section-header">
-    <div class="section-icon icon-yellow">📝</div>
-    <div class="section-header-text">
-      <h2>⑤ スタンプ名・説明文の入力</h2>
-      <p>申請に必要なタイトルと説明をAI翻訳つきで入力</p>
+<!-- TROUBLESHOOTING -->
+<section class="trouble">
+  <div class="step-head">
+    <div class="step-num" style="background:var(--yellow);">?</div>
+    <div>
+      <h2>困ったときは</h2>
+      <p>よくあるつまずきポイント</p>
     </div>
   </div>
-  <div class="section-body">
-
-    <ul class="step-list">
-      <li>
-        <div class="step-badge">1</div>
-        <div class="step-text">
-          <h4>タイトル（スタンプ名）を入力</h4>
-          <p>日本語で入力します。<strong>2文字以上</strong>必要です。（例：「ゆるかわ動物スタンプ」）</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge">2</div>
-        <div class="step-text">
-          <h4>説明文を入力</h4>
-          <p>日本語で入力します。<strong>10文字以上</strong>必要です。どんなシーンで使えるか、どんなキャラかを書きましょう。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge">3</div>
-        <div class="step-text">
-          <h4>「英語に翻訳」で英語版を自動生成</h4>
-          <p>Gemini APIキーが設定されていれば、ボタン1つで英語タイトル・英語説明文を自動生成できます。LINEクリエイターズマーケット申請では英語入力が必要なので便利です。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge">4</div>
-        <div class="step-text">
-          <h4>メイン画像・タブ画像を設定</h4>
-          <p><strong>メイン画像（240×240px）</strong>と<strong>タブ画像（96×74px）</strong>の元になるスタンプを選択します。</p>
-        </div>
-      </li>
-    </ul>
-
-    <div class="note-box">
-      <span class="note-icon">💡</span>
-      <p><strong>説明文ヒント：</strong>「○○のスタンプ。毎日よく使う言葉がたくさん。バレンタインに使える。」のように<strong>使用シーン・特徴・ターゲット</strong>を盛り込むと検索に引っかかりやすくなります。</p>
-    </div>
+  <div class="step-body">
+    <dl class="trouble">
+      <dt>Q. 背景が透明にならない・白く残る</dt>
+      <dd>ステップ3の「追加透過」で手動修正するか、一覧画面の「一括透過」の数値を調整してください。</dd>
+      <dt>Q. スタンプの個数が申請可能数（8/16/24/32/40）に合わない</dt>
+      <dd>画像を追加でアップロードするか、不要なスタンプはチェックを外して「除外」にできます。詳しくは全機能ガイドの「スタンプ管理」をご覧ください。</dd>
+      <dt>Q. 「英語に翻訳」を押しても反応しない</dt>
+      <dd>Gemini APIキーが未設定です。画面右上の「API設定」から無料のAPIキーを登録してください（全機能ガイドに手順があります）。</dd>
+      <dt>Q. 作業中にブラウザを閉じてしまった</dt>
+      <dd>次回サイトを開くと「保存データが見つかりました」と表示され、「続きから再開する」で作業を再開できます。</dd>
+    </dl>
   </div>
 </section>
 
-
-<!-- ⑥ ZIPダウンロード -->
-<section class="section" id="export">
-  <div class="section-header">
-    <div class="section-icon icon-green">📦</div>
-    <div class="section-header-text">
-      <h2>⑥ 書き出し・ZIPダウンロード</h2>
-      <p>申請用ファイルをまとめてダウンロード</p>
-    </div>
-  </div>
-  <div class="section-body">
-
-    <table class="spec-table">
-      <thead>
-        <tr><th>オプション</th><th>内容</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><strong>番号を振り直す</strong></td>
-          <td>ファイル名を 01.png〜 の連番に整えます。申請時に必要な形式に合わせられます。</td>
-        </tr>
-        <tr>
-          <td><strong>ZIPをダウンロード</strong></td>
-          <td>スタンプ画像・メイン画像・タブ画像が入ったZIPを一括ダウンロードします。クリエイターズマーケットへの申請に使います。</td>
-        </tr>
-        <tr>
-          <td><strong>個別ダウンロード</strong></td>
-          <td>各スタンプの「ダウンロード」ボタンで1枚ずつPNG形式でダウンロードできます。</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="info-box" style="margin-top: 16px;">
-      <span class="note-icon">ℹ️</span>
-      <p>ダウンロードしたZIPはそのまま次回の「<strong>ZIPから復元</strong>」にも使えます。バックアップとして保管しておくと便利です。切り出しくんで編集したものは、編集データも保存されます。</p>
-    </div>
-  </div>
-</section>
-
-
-<!-- ⑦ クリエイターズマーケット登録 -->
-<section class="section" id="creators">
-  <div class="section-header">
-    <div class="section-icon icon-line">🏪</div>
-    <div class="section-header-text">
-      <h2>⑦ LINEクリエイターズマーケットでの登録方法</h2>
-      <p>販売・有料スタンプを申請する公式ルート</p>
-    </div>
-  </div>
-  <div class="section-body">
-
-    <div class="note-box" style="margin-bottom: 24px;">
-      <span class="note-icon">📌</span>
-      <p><strong>LINEクリエイターズマーケット</strong>はスタンプを有料販売できる公式プラットフォームです。審査があるため最大2日程度かかります。</p>
-    </div>
-
-    <ul class="step-list">
-      <li>
-        <div class="step-badge line-color">1</div>
-        <div class="step-text">
-          <h4>LINEクリエイターズマーケットにアクセス</h4>
-          <p>「クリエイターズマーケット」ボタンを押すか、<strong>creators.line.me</strong> にアクセスします。LINEアカウントでログインしてください。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge line-color">2</div>
-        <div class="step-text">
-          <h4>「アイテム管理」→「新規追加」</h4>
-          <p>ダッシュボードの「アイテム管理」から「新規追加」を選択し、アイテムタイプで「<strong>スタンプ</strong>」を選びます。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge line-color">3</div>
-        <div class="step-text">
-          <h4>基本情報を入力</h4>
-          <p>タイトルと説明文を<strong>日本語・英語の両方</strong>で入力します。スタンプ切り出しくんで生成した英語テキストをそのまま貼り付けられます。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge line-color">4</div>
-        <div class="step-text">
-          <h4>スタンプ画像をアップロード</h4>
-          <p>ZIPを解凍してスタンプ画像（<strong>370×320px以内、PNG形式</strong>）を1枚ずつアップロードします。8・16・24・32・40枚のいずれかが必要です。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge line-color">5</div>
-        <div class="step-text">
-          <h4>メイン画像・タブ画像をアップロード</h4>
-          <p><strong>メイン画像（240×240px）</strong>と<strong>タブ画像（96×74px）</strong>をそれぞれアップロードします。ZIPに同梱されています。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge line-color">6</div>
-        <div class="step-text">
-          <h4>価格設定・販売地域を設定</h4>
-          <p>販売価格（120円〜）と販売エリアを選択します。初めての方は「日本のみ」から始めるのがおすすめです。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge line-color">7</div>
-        <div class="step-text">
-          <h4>「申請」ボタンを押して審査へ</h4>
-          <p>内容を確認して「申請」を押します。LINEの審査を通過すると販売開始になります。審査結果はメールで通知されます。</p>
-        </div>
-      </li>
-    </ul>
-
-    <div class="note-box">
-      <span class="note-icon">⚠️</span>
-      <p><strong>審査のポイント：</strong>著作権・商標権を侵害しないこと、公序良俗に反しないこと、LINEガイドラインを遵守していることが審査基準です。キャラクターの二次創作には制限があります。</p>
-    </div>
-
-  </div>
-</section>
-
-
-<!-- ⑧ LINEスタンプメーカー -->
-<section class="section" id="maker">
-  <div class="section-header">
-    <div class="section-icon icon-line">📱</div>
-    <div class="section-header-text">
-      <h2>⑧ LINEスタンプメーカーでの登録方法</h2>
-      <p>スマホアプリで登録する公式ルート</p>
-    </div>
-  </div>
-  <div class="section-body">
-
-    <div class="note-box" style="background: #eff6ff; border-color: #93c5fd; margin-bottom: 24px;">
-      <span class="note-icon">📱</span>
-      <p><strong>LINEスタンプメーカー</strong>はスマートフォンアプリ（iOS/Android）です。</p>
-    </div>
-
-    <div class="subsection-title">スマホで登録する方法</div>
-
-    <ul class="step-list">
-      <li>
-        <div class="step-badge blue">1</div>
-        <div class="step-text">
-          <h4>スタンプメーカーアプリをインストール</h4>
-          <p>App StoreまたはGoogle Playで「<strong>LINEスタンプメーカー</strong>」を検索してインストールします。LINEアカウントでログインしてください。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge blue">2</div>
-        <div class="step-text">
-          <h4>「カメラロール」から画像を選択</h4>
-          <p>スタンプ切り出しくんでダウンロードしたPNG画像をスマホに転送し、スタンプメーカーアプリの「カメラロールから選択」でインポートします。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge blue">3</div>
-        <div class="step-text">
-          <h4>スタンプセットを作成</h4>
-          <p>「＋新規スタンプセットを作成」から、スタンプ名と画像を登録します。<strong>8枚以上</strong>のスタンプが必要です。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge blue">4</div>
-        <div class="step-text">
-          <h4>メイン画像・タブ画像を登録</h4>
-          <p>スタンプセット一覧画面から「メイン画像」「タブ画像」をそれぞれ設定します。スタンプ切り出しくんのZIPに同梱されています。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge blue">5</div>
-        <div class="step-text">
-          <h4>「自分専用」または「販売申請」を選択</h4>
-          <p>自分のLINEで使う場合は<strong>「自分専用」</strong>、一般販売する場合は<strong>「販売申請」</strong>を選択します。</p>
-        </div>
-      </li>
-      <li>
-        <div class="step-badge blue">6</div>
-        <div class="step-text">
-          <h4>申請ボタンを押して完了</h4>
-          <p>いずれの申請タイプもLINEの審査があります。審査通過後に利用・販売が開始されます（通常数日〜1週間程度）。</p>
-        </div>
-      </li>
-    </ul>
-
-  </div>
-</section>
-
+<div class="next-guide">
+  <a href="manual-full.html">全機能ガイドを見る →</a>
+  <p>文字入れ・画像レイヤー・手書き・一括操作など、すべての機能を詳しく解説しています</p>
+</div>
 
 <footer>
   <p style="color: var(--green-dark); font-weight: 700; margin-bottom: 6px;">🌿 スタンプ切り出しくん</p>

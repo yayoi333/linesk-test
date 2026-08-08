@@ -1,13 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 
 let customApiKey: string | null = null;
-const MODEL_NAME = "gemini-3-flash-preview";
 
 export function setGeminiApiKey(key: string) {
   customApiKey = key;
 }
 
 function getGeminiApiKey(): string {
+  // APIキーは localStorage に暗号化して保存される（lib/storage.ts の saveApiKey/loadApiKey）。
+  // ここでは平文の localStorage を直接参照せず、App 側で復号済みのキーが
+  // setGeminiApiKey / translateMeta の apiKeyOverride 経由で渡される前提とする。
+
   // @ts-ignore
   const processEnvKey =
     typeof process !== "undefined"
@@ -22,25 +25,12 @@ function getGeminiApiKey(): string {
   return customApiKey || processEnvKey || viteEnvKey || "";
 }
 
-function resolveApiKey(apiKeyOverride?: string | null): string {
-  return apiKeyOverride?.trim() || getGeminiApiKey();
-}
-
-function dataUrlToInlineData(dataUrl: string): { mimeType: string; data: string } | null {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) return null;
-  return {
-    mimeType: match[1],
-    data: match[2],
-  };
-}
-
 export async function translateMeta(
   jaName: string,
   jaDesc: string,
   apiKeyOverride?: string | null
 ): Promise<{ enName: string; enDesc: string }> {
-  const apiKey = resolveApiKey(apiKeyOverride);
+  const apiKey = getGeminiApiKey() || apiKeyOverride?.trim();
 
   if (!apiKey) {
     throw new Error("APIキーが見つかりません。「API設定」ボタンから設定してください。");
@@ -63,6 +53,8 @@ Strict Rules:
 
 Text to translate:
 ${text}`;
+
+    const MODEL_NAME = "gemini-3-flash-preview";
 
     try {
       const response = await ai.models.generateContent({
@@ -119,81 +111,4 @@ ${text}`;
   ]);
 
   return { enName, enDesc };
-}
-
-export async function generateMeta(
-  input: {
-    imageDataUrl?: string;
-    stampCount: number;
-    existingMeta: {
-      stampNameJa?: string;
-      stampDescJa?: string;
-      stampNameEn?: string;
-      stampDescEn?: string;
-    };
-  },
-  apiKeyOverride?: string | null
-): Promise<{ stampNameJa: string; stampDescJa: string; stampNameEn: string; stampDescEn: string }> {
-  const apiKey = resolveApiKey(apiKeyOverride);
-
-  if (!apiKey) {
-    throw new Error("APIキーが見つかりません。「API設定」ボタンから設定してください。");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
-  const inlineData = input.imageDataUrl ? dataUrlToInlineData(input.imageDataUrl) : null;
-  const prompt = `You help create LINE sticker metadata.
-Generate concise metadata in Japanese and English for a sticker set.
-
-Rules:
-1. Return ONLY valid JSON.
-2. Use these exact keys: stampNameJa, stampDescJa, stampNameEn, stampDescEn.
-3. Japanese title must be 2-40 characters.
-4. Japanese description must be 10-160 characters.
-5. English title must be 2-40 characters.
-6. English description must be 10-160 characters.
-7. Keep it natural, friendly, and suitable for LINE Creators Market.
-8. Do not mention AI, upload, image analysis, or Google.
-
-Context:
-- Number of stickers: ${input.stampCount}
-- Existing Japanese title: ${input.existingMeta.stampNameJa || "(empty)"}
-- Existing Japanese description: ${input.existingMeta.stampDescJa || "(empty)"}
-- Existing English title: ${input.existingMeta.stampNameEn || "(empty)"}
-- Existing English description: ${input.existingMeta.stampDescEn || "(empty)"}`;
-
-  const parts: any[] = [{ text: prompt }];
-  if (inlineData) {
-    parts.push({ inlineData });
-  }
-
-  const response = await ai.models.generateContent({
-    model: MODEL_NAME,
-    contents: {
-      parts,
-    },
-    config: {
-      temperature: 0.6,
-      maxOutputTokens: 700,
-      responseMimeType: "application/json",
-    },
-  });
-
-  const rawText =
-    response.text ||
-    response.candidates?.[0]?.content?.parts?.find((part: any) => part.text)?.text ||
-    "";
-
-  try {
-    const parsed = JSON.parse(rawText.trim());
-    return {
-      stampNameJa: String(parsed.stampNameJa || "").slice(0, 40),
-      stampDescJa: String(parsed.stampDescJa || "").slice(0, 160),
-      stampNameEn: String(parsed.stampNameEn || "").slice(0, 40),
-      stampDescEn: String(parsed.stampDescEn || "").slice(0, 160),
-    };
-  } catch (error) {
-    console.warn("Metadata generation returned invalid JSON:", rawText, error);
-    throw new Error("AI生成結果の読み取りに失敗しました。もう一度お試しください。");
-  }
 }
