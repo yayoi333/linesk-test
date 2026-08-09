@@ -330,7 +330,8 @@ export const StoreViewModal: React.FC<Props> = ({
             <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
               <div className="flex flex-col sm:flex-row gap-6">
                 <div className="shrink-0 mx-auto sm:mx-0">
-                  <div className="w-[240px] h-[240px] flex items-center justify-center">
+                  {/* sm未満(横幅が狭く縦積みになる)ときは「ショップ」と同じ170pxに縮小 */}
+                  <div className="w-[170px] h-[170px] sm:w-[240px] sm:h-[240px] flex items-center justify-center">
                     {mainImageUrl ? (
                       <StoreSticker imageUrl={mainImageUrl} config={mainConfig ?? stampToConfig(stamps[0])} width={MAIN_WIDTH} height={MAIN_HEIGHT} />
                     ) : (
