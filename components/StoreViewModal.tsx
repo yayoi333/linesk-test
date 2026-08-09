@@ -254,11 +254,11 @@ export const StoreViewModal: React.FC<Props> = ({
             <button
               onClick={() => setDevice('mobile')}
               className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border transition ${isMobile ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
-            ><Smartphone size={14} />スマホ</button>
+            ><Smartphone size={14} />ショップ</button>
             <button
               onClick={() => setDevice('pc')}
               className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded border transition ${!isMobile ? 'bg-primary-600 border-primary-600 text-white' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-100'}`}
-            ><Monitor size={14} />パソコン</button>
+            ><Monitor size={14} />LINEストア</button>
           </div>
           {hasEnglish && (
             <div className="flex items-center gap-1 ml-1">
