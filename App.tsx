@@ -1366,15 +1366,15 @@ export default function App() {
                       }`}
                       title={
                         transparencyMode === 'auto'
-                          ? '背景透過：自動（背景が透過済みの画像は、透過せず切り分けだけします）押すたびに 自動→ON→OFF と切り替わります'
+                          ? '背景透過：自動（背景が透過済みの画像は、透過せず切り分けだけします）押すたびに 自動→する→しない と切り替わります'
                           : transparencyMode === 'off'
-                            ? '背景透過：ON（すべての画像に背景透過をします）押すたびに 自動→ON→OFF と切り替わります'
-                            : '背景透過：OFF（背景透過をせず、切り分けだけします）押すたびに 自動→ON→OFF と切り替わります'
+                            ? '背景透過：する（すべての画像に背景透過をします）押すたびに 自動→する→しない と切り替わります'
+                            : '背景透過：しない（背景透過をせず、切り分けだけします）押すたびに 自動→する→しない と切り替わります'
                       }
                     >
                       <Eraser size={14} />
                       <span className="hidden sm:inline">背景透過</span>
-                      <span>{transparencyMode === 'auto' ? '自動' : transparencyMode === 'off' ? 'ON' : 'OFF'}</span>
+                      <span>{transparencyMode === 'auto' ? '自動' : transparencyMode === 'off' ? 'する' : 'しない'}</span>
                     </button>
                     <button
                       onClick={() => setFillHoles(!fillHoles)}
