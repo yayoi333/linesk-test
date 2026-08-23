@@ -102,7 +102,7 @@ async function sha256(message: string) {
 
 async function checkAccess() {
   // セッション中に認証済みならスキップ
-  if (localStorage.getItem('auth_verified_test') === 'true') {
+  if (localStorage.getItem('auth_verified') === 'true') {
     return true;
   }
 
@@ -118,7 +118,7 @@ async function checkAccess() {
   const VALID_HASH = "1803660558f96fc39ee55b552e5584ad9e8ebe28782727da811713acbfcaa54b";
 
   if (keyHash === VALID_HASH) {
-    localStorage.setItem('auth_verified_test', 'true');
+    localStorage.setItem('auth_verified', 'true');
     return true;
   }
   return false;

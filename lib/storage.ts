@@ -35,7 +35,7 @@ export interface MaterialItem {
   createdAt: string;     // ISO文字列
 }
 
-const DB_NAME = 'stamp-cutter-test-db';
+const DB_NAME = 'stamp-cutter-db';
 const DB_VERSION = 2; // Increment version for schema update
 const STORE_NAME = 'projects';
 const PROJECT_KEY = 'current';
