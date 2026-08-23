@@ -90,6 +90,7 @@ export interface Stamp {
   offsetX: number;
   offsetY: number;
   currentTolerance?: number; // Track the tolerance used for this stamp
+  skipBgRemoval?: boolean; // 元画像が背景透過済み。背景透過をせず切り分けだけした(透過スライダーの対象外)
   fillHolesOverride?: boolean; // 「囲みも透過」を個別に上書き（未設定なら全体設定に従う）
   isEdited?: boolean; // 個別編集画面で編集済み。全体の「まとめる強さ」「一括透過」で上書きしない
   textObjects?: TextObject[]; // Added text objects

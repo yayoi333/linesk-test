@@ -944,7 +944,7 @@ export const StampEditorModal: React.FC<Props> = ({
       if (toleranceTimeoutRef.current) { clearTimeout(toleranceTimeoutRef.current); }
       toleranceTimeoutRef.current = window.setTimeout(async () => {
           if (stamp.originalDataUrl) {
-              try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, newVal, fillHoles); setWorkingDataUrl(newDataUrl); }
+              try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, newVal, fillHoles, stamp.skipBgRemoval); setWorkingDataUrl(newDataUrl); }
               catch (err) { console.error("Failed to reprocess", err); }
           }
       }, 300);
@@ -1204,20 +1204,21 @@ export const StampEditorModal: React.FC<Props> = ({
           </div>
           <div className="flex items-center gap-2 ml-auto">
               <button
+                disabled={stamp.skipBgRemoval}
                 onClick={async () => {
                   const next = !localFillHoles;
                   setLocalFillHoles(next);
                   if (stamp.originalDataUrl) {
-                    try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, tolerance, next); setWorkingDataUrl(newDataUrl); }
+                    try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, tolerance, next, stamp.skipBgRemoval); setWorkingDataUrl(newDataUrl); }
                     catch (err) { console.error("Failed to reprocess", err); }
                   }
                 }}
-                className={`flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-full border transition shrink-0 ${
+                className={`flex items-center gap-1 text-xs font-bold px-3 py-2 rounded-full border transition shrink-0 disabled:opacity-40 disabled:cursor-not-allowed ${
                   localFillHoles
                     ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700'
                     : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
                 }`}
-                title="「○」の中、手と顔の間など、外側とつながっていない囲まれた背景色も透過します"
+                title={stamp.skipBgRemoval ? 'この画像は背景が透過済みのため、透過処理はしません' : '「○」の中、手と顔の間など、外側とつながっていない囲まれた背景色も透過します'}
               >
                 <CheckCircle2 size={14} />
                 <span className="hidden sm:inline">囲みも透過</span>
@@ -1447,7 +1448,14 @@ export const StampEditorModal: React.FC<Props> = ({
                  </CollapsiblePanel>
              )}
 
-             {mode === 'wand' && originalImage && (
+             {mode === 'wand' && originalImage && stamp.skipBgRemoval && (
+                <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs text-gray-600">
+                    <Wand2 size={16} className="shrink-0 text-gray-400" />
+                    この画像は背景が透過済みなので、透過処理はしていません（切り分けのみ）。
+                </div>
+             )}
+
+             {mode === 'wand' && originalImage && !stamp.skipBgRemoval && (
                 <div className="flex items-center gap-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
                     <div className="flex items-center gap-2 text-yellow-700 font-bold text-sm min-w-[80px] shrink-0">
                         <Wand2 size={16} /> 追加透過
@@ -1459,7 +1467,7 @@ export const StampEditorModal: React.FC<Props> = ({
                             if (toleranceTimeoutRef.current) { clearTimeout(toleranceTimeoutRef.current); }
                             toleranceTimeoutRef.current = window.setTimeout(async () => {
                                 if (stamp.originalDataUrl) {
-                                    try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, val, localFillHoles); setWorkingDataUrl(newDataUrl); }
+                                    try { const newDataUrl = await reprocessStampWithTolerance(stamp.originalDataUrl, val, localFillHoles, stamp.skipBgRemoval); setWorkingDataUrl(newDataUrl); }
                                     catch (err) { console.error("Failed to reprocess", err); }
                                 }
                             }, 300);
