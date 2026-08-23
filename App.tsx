@@ -1356,8 +1356,29 @@ export default function App() {
                     <div className="bg-primary-500 p-2 rounded-lg text-white"><Grid size={24} /></div>
                     <h1 className="text-xl font-bold text-gray-800">スタンプ切り出しくん</h1>
                     <button
-                      onClick={() => setFillHoles(!fillHoles)}
+                      onClick={() => setTransparencyMode(prev => prev === 'auto' ? 'off' : prev === 'off' ? 'force' : 'auto')}
                       className={`ml-auto flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition ${
+                        transparencyMode === 'auto'
+                          ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700'
+                          : transparencyMode === 'off'
+                            ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+                      }`}
+                      title={
+                        transparencyMode === 'auto'
+                          ? '背景透過：自動（背景が透過済みの画像は、透過せず切り分けだけします）押すたびに 自動→ON→OFF と切り替わります'
+                          : transparencyMode === 'off'
+                            ? '背景透過：ON（すべての画像に背景透過をします）押すたびに 自動→ON→OFF と切り替わります'
+                            : '背景透過：OFF（背景透過をせず、切り分けだけします）押すたびに 自動→ON→OFF と切り替わります'
+                      }
+                    >
+                      <Eraser size={14} />
+                      <span className="hidden sm:inline">背景透過</span>
+                      <span>{transparencyMode === 'auto' ? '自動' : transparencyMode === 'off' ? 'ON' : 'OFF'}</span>
+                    </button>
+                    <button
+                      onClick={() => setFillHoles(!fillHoles)}
+                      className={`flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border transition ${
                         fillHoles
                           ? 'bg-primary-600 border-primary-600 text-white hover:bg-primary-700'
                           : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
@@ -1431,37 +1452,6 @@ export default function App() {
                                 <span className="text-xs text-gray-500 font-mono w-6 text-right shrink-0">{gapTolerance}</span>
                             </div>
                             {isRegenerating && <Loader2 size={14} className="animate-spin text-primary-500" />}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1 text-xs font-bold text-gray-500">
-                                <Eraser size={14} />
-                                <span className="hidden sm:inline">背景透過</span>
-                            </div>
-                            <div className="flex items-center gap-0.5 bg-gray-50 rounded-lg p-1 border border-gray-200">
-                                {([
-                                    { value: 'auto', label: '自動', hint: '背景が透過済みの画像なら、透過処理をせず切り分けだけします' },
-                                    { value: 'force', label: 'しない', hint: 'すべての画像を透過済みとして扱い、背景透過をしません' },
-                                    { value: 'off', label: 'する', hint: 'すべての画像に背景透過をします' },
-                                ] as { value: TransparencyMode; label: string; hint: string }[]).map(opt => (
-                                    <button
-                                      key={opt.value}
-                                      onClick={() => setTransparencyMode(opt.value)}
-                                      title={opt.hint}
-                                      className={`px-2 h-6 rounded text-xs font-bold transition-colors ${
-                                        transparencyMode === opt.value
-                                          ? 'bg-primary-500 text-white'
-                                          : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
-                                      }`}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                            {skippedBgStampCount > 0 && (
-                                <span className="text-[10px] text-primary-600 font-bold whitespace-nowrap">
-                                    透過済み{skippedBgStampCount}枚は切り分けのみ
-                                </span>
-                            )}
                         </div>
                         <div className="flex items-center gap-2">
                             <button
@@ -1651,7 +1641,7 @@ export default function App() {
                         <div className="text-xs text-gray-500 mt-2 bg-blue-50 p-2 rounded border border-blue-100">
                              <div className="flex items-start gap-1">
                                 <Info size={14} className="text-blue-500 mt-0.5 shrink-0" />
-                                <div><span className="font-bold text-blue-600">申請可能個数:</span> 8, 16, 24, 32, 40個<br/>{isExactCount ? <span className="text-green-600 font-bold">現在 {validStampsCount}個 (申請可能です！)</span> : <>{isOverLimit ? <span className="text-orange-600 font-bold">40個を超えています。</span> : <span className="text-orange-600">次は <span className="font-bold">{nextTarget}個</span> を目指しましょう</span>}</>}<br/><span className="opacity-70 text-[10px]">※不足していると申請できません。</span></div>
+                                <div><span className="font-bold text-blue-600">申請可能個数:</span> 8, 16, 24, 32, 40個<br/>{isExactCount ? <span className="text-green-600 font-bold">現在 {validStampsCount}個 (申請可能です！)</span> : <>{isOverLimit ? <span className="text-orange-600 font-bold">40個を超えています。</span> : <span className="text-orange-600">次は <span className="font-bold">{nextTarget}個</span> を目指しましょう</span>}</>}<br/><span className="opacity-70 text-[10px]">※不足していると申請できません。</span>{skippedBgStampCount > 0 && (<><br/><span className="text-primary-600 font-bold text-[10px]">背景透過済みの{skippedBgStampCount}枚は、透過せず切り分けだけしました</span></>)}</div>
                              </div>
                         </div>
                     </div>
